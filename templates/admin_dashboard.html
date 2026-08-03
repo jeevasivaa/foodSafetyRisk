@@ -1,0 +1,202 @@
+{% extends 'base.html' %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block page_title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="content-header">
+  <h2 class="content-title">
+    <i class="bi bi-speedometer2 me-2 text-primary"></i>Admin Dashboard
+  </h2>
+  <p class="content-subtitle">Platform-wide overview and recent activity</p>
+</div>
+
+<!-- ── Stats Cards ──────────────────────────────────────────────── -->
+<div class="row g-4 mb-4">
+  <div class="col-6 col-xl-3">
+    <div class="stat-card stat-card-blue">
+      <div class="stat-icon"><i class="bi bi-people"></i></div>
+      <div class="stat-info">
+        <div class="stat-value">{{ total_users }}</div>
+        <div class="stat-label">Total Users</div>
+      </div>
+      <div class="stat-bg-icon"><i class="bi bi-people"></i></div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="stat-card stat-card-purple">
+      <div class="stat-icon"><i class="bi bi-search"></i></div>
+      <div class="stat-info">
+        <div class="stat-value">{{ total_scans }}</div>
+        <div class="stat-label">Total Scans</div>
+      </div>
+      <div class="stat-bg-icon"><i class="bi bi-search"></i></div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="stat-card stat-card-orange">
+      <div class="stat-icon"><i class="bi bi-hourglass-split"></i></div>
+      <div class="stat-info">
+        <div class="stat-value">{{ pending_complaints }}</div>
+        <div class="stat-label">Pending</div>
+      </div>
+      <div class="stat-bg-icon"><i class="bi bi-hourglass-split"></i></div>
+    </div>
+  </div>
+  <div class="col-6 col-xl-3">
+    <div class="stat-card stat-card-green">
+      <div class="stat-icon"><i class="bi bi-check-circle"></i></div>
+      <div class="stat-info">
+        <div class="stat-value">{{ resolved_complaints }}</div>
+        <div class="stat-label">Resolved</div>
+      </div>
+      <div class="stat-bg-icon"><i class="bi bi-check-circle"></i></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Quick Navigation ──────────────────────────────────────────── -->
+<div class="row g-4 mb-4">
+  <div class="col-12">
+    <div class="card shadow-sm border-0">
+      <div class="card-body p-4">
+        <h5 class="fw-bold mb-3">
+          <i class="bi bi-lightning-charge-fill text-warning me-2"></i>Quick Actions
+        </h5>
+        <div class="d-flex flex-wrap gap-3">
+          <a href="{{ url_for('admin.users') }}" class="btn btn-primary btn-lg px-4">
+            <i class="bi bi-people me-2"></i>Manage Users
+          </a>
+          <a href="{{ url_for('admin.scans') }}" class="btn btn-outline-primary btn-lg px-4">
+            <i class="bi bi-search me-2"></i>All Scans
+          </a>
+          <a href="{{ url_for('admin.complaints') }}" class="btn btn-outline-danger btn-lg px-4">
+            <i class="bi bi-exclamation-triangle me-2"></i>Complaints
+            {% if pending_complaints > 0 %}
+            <span class="badge bg-danger ms-1">{{ pending_complaints }}</span>
+            {% endif %}
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- ── Recent Scans ─────────────────────────────────────────────── -->
+  <div class="col-lg-6">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+        <div class="d-flex justify-content-between align-items-center">
+          <h5 class="fw-bold mb-0">
+            <i class="bi bi-clock-history me-2 text-primary"></i>Recent Scans
+          </h5>
+          <a href="{{ url_for('admin.scans') }}" class="btn btn-sm btn-outline-primary">
+            View All <i class="bi bi-arrow-right ms-1"></i>
+          </a>
+        </div>
+      </div>
+      <div class="card-body px-4 pb-4">
+        {% if recent_scans %}
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Product</th>
+                <th>Customer</th>
+                <th>Score</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for scan in recent_scans %}
+              <tr>
+                <td>
+                  <div class="fw-semibold">{{ scan['product_name'] }}</div>
+                  <small class="text-muted">{{ scan['brand'] }}</small>
+                </td>
+                <td class="text-muted">{{ scan['customer'] }}</td>
+                <td>
+                  <small class="fw-semibold">{{ scan['quality_score'] }}%</small>
+                </td>
+                <td>
+                  {% if scan['status'] == 'Safe' %}
+                    <span class="badge badge-safe">Safe</span>
+                  {% elif scan['status'] == 'Warning' %}
+                    <span class="badge badge-warning-custom">Warning</span>
+                  {% else %}
+                    <span class="badge badge-unsafe">Unsafe</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center py-4 text-muted">
+          <i class="bi bi-inbox display-6"></i>
+          <p class="mt-2">No scans yet.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Recent Complaints ─────────────────────────────────────────── -->
+  <div class="col-lg-6">
+    <div class="card shadow-sm border-0 h-100">
+      <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+        <div class="d-flex justify-content-between align-items-center">
+          <h5 class="fw-bold mb-0">
+            <i class="bi bi-chat-square-text me-2 text-danger"></i>Recent Complaints
+          </h5>
+          <a href="{{ url_for('admin.complaints') }}" class="btn btn-sm btn-outline-danger">
+            View All <i class="bi bi-arrow-right ms-1"></i>
+          </a>
+        </div>
+      </div>
+      <div class="card-body px-4 pb-4">
+        {% if recent_complaints %}
+        <div class="table-responsive">
+          <table class="table table-sm table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>ID</th>
+                <th>Product</th>
+                <th>Customer</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for c in recent_complaints %}
+              <tr>
+                <td><code class="text-primary small">{{ c['complaint_id'] }}</code></td>
+                <td class="fw-semibold">{{ c['product_name'] }}</td>
+                <td class="text-muted">{{ c['customer'] }}</td>
+                <td>
+                  {% if c['status'] == 'Pending' %}
+                    <span class="badge badge-pending">Pending</span>
+                  {% elif c['status'] == 'Approved' %}
+                    <span class="badge badge-approved">Approved</span>
+                  {% elif c['status'] == 'Resolved' %}
+                    <span class="badge badge-resolved">Resolved</span>
+                  {% else %}
+                    <span class="badge badge-rejected">Rejected</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="text-center py-4 text-muted">
+          <i class="bi bi-chat-square-x display-6"></i>
+          <p class="mt-2">No complaints yet.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

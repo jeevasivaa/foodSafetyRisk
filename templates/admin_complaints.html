@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+{% block title %}All Complaints{% endblock %}
+{% block page_title %}All Complaints{% endblock %}
+
+{% block content %}
+<div class="content-header">
+  <h2 class="content-title">
+    <i class="bi bi-exclamation-triangle me-2 text-danger"></i>All Complaints
+  </h2>
+  <p class="content-subtitle">
+    Manage customer complaints — <strong>{{ pagination.total }}</strong> total
+  </p>
+</div>
+
+<!-- ── Search & Filter ───────────────────────────────────────────── -->
+<div class="card shadow-sm border-0 mb-4">
+  <div class="card-body p-3">
+    <form method="GET" action="{{ url_for('admin.complaints') }}" class="row g-2 align-items-end">
+      <div class="col-md-6">
+        <div class="input-group">
+          <span class="input-group-text bg-transparent">
+            <i class="bi bi-search text-muted"></i>
+          </span>
+          <input type="text" class="form-control" name="q"
+                 placeholder="Search by complaint ID, product or customer..."
+                 value="{{ query }}" />
+        </div>
+      </div>
+      <div class="col-md-3">
+        <select class="form-select" name="status">
+          <option value="" {% if not current_status %}selected{% endif %}>All Statuses</option>
+          <option value="Pending"  {% if current_status == 'Pending'  %}selected{% endif %}>Pending</option>
+          <option value="Approved" {% if current_status == 'Approved' %}selected{% endif %}>Approved</option>
+          <option value="Rejected" {% if current_status == 'Rejected' %}selected{% endif %}>Rejected</option>
+          <option value="Resolved" {% if current_status == 'Resolved' %}selected{% endif %}>Resolved</option>
+        </select>
+      </div>
+      <div class="col-md-3 d-flex gap-2">
+        <button type="submit" class="btn btn-primary flex-grow-1">
+          <i class="bi bi-funnel me-1"></i>Filter
+        </button>
+        {% if query or current_status %}
+        <a href="{{ url_for('admin.complaints') }}" class="btn btn-outline-secondary">
+          <i class="bi bi-x-lg"></i>
+        </a>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Complaints Table ──────────────────────────────────────────── -->
+<div class="card shadow-sm border-0">
+  <div class="card-body p-0">
+    {% if complaints %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-4">Complaint ID</th>
+            <th>Product</th>
+            <th>Brand</th>
+            <th>Customer</th>
+            <th>Description</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th class="text-center pe-4">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in complaints %}
+          <tr>
+            <td class="ps-4">
+              <code class="text-primary fw-semibold">{{ c['complaint_id'] }}</code>
+            </td>
+            <td class="fw-semibold">{{ c['product_name'] }}</td>
+            <td>{{ c['brand'] }}</td>
+            <td class="text-muted">{{ c['customer'] }}</td>
+            <td>
+              <span title="{{ c['description'] }}" style="cursor:pointer"
+                    class="d-inline-block text-truncate" style="max-width:150px">
+                {{ c['description'][:50] }}{% if c['description']|length > 50 %}...{% endif %}
+              </span>
+            </td>
+            <td class="text-muted">{{ c['created_at'][:10] }}</td>
+            <td>
+              {% if c['status'] == 'Pending' %}
+                <span class="badge badge-pending">Pending</span>
+              {% elif c['status'] == 'Approved' %}
+                <span class="badge badge-approved">Approved</span>
+              {% elif c['status'] == 'Resolved' %}
+                <span class="badge badge-resolved">Resolved</span>
+              {% else %}
+                <span class="badge badge-rejected">Rejected</span>
+              {% endif %}
+            </td>
+            <td class="text-center pe-4">
+              <div class="d-flex gap-1 justify-content-center flex-wrap">
+                {% if c['status'] == 'Pending' %}
+                <form method="POST" action="{{ url_for('admin.approve_complaint', complaint_id=c['id']) }}">
+                  <button type="submit" class="btn btn-sm btn-success" title="Approve">
+                    <i class="bi bi-check-lg"></i>
+                  </button>
+                </form>
+                <form method="POST" action="{{ url_for('admin.reject_complaint', complaint_id=c['id']) }}">
+                  <button type="submit" class="btn btn-sm btn-warning" title="Reject"
+                          onclick="return confirm('Reject this complaint?')">
+                    <i class="bi bi-x-lg"></i>
+                  </button>
+                </form>
+                {% endif %}
+
+                {% if c['status'] == 'Approved' %}
+                <form method="POST" action="{{ url_for('admin.resolve_complaint', complaint_id=c['id']) }}">
+                  <button type="submit" class="btn btn-sm btn-primary" title="Mark Resolved">
+                    <i class="bi bi-check2-all"></i>
+                  </button>
+                </form>
+                {% endif %}
+
+                <form method="POST"
+                      action="{{ url_for('admin.delete_complaint', complaint_id=c['id']) }}"
+                      onsubmit="return confirm('Permanently delete this complaint?')">
+                  <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Pagination -->
+    {% if pagination.total_pages > 1 %}
+    <div class="d-flex justify-content-between align-items-center px-4 py-3 border-top">
+      <small class="text-muted">
+        Showing {{ (pagination.page - 1) * pagination.per_page + 1 }}–
+        {{ [pagination.page * pagination.per_page, pagination.total] | min }}
+        of {{ pagination.total }}
+      </small>
+      <nav>
+        <ul class="pagination pagination-sm mb-0">
+          <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+            <a class="page-link"
+               href="{{ url_for('admin.complaints', page=pagination.page-1, q=query, status=current_status) }}">
+              <i class="bi bi-chevron-left"></i>
+            </a>
+          </li>
+          {% for p in range(1, pagination.total_pages + 1) %}
+          <li class="page-item {% if p == pagination.page %}active{% endif %}">
+            <a class="page-link"
+               href="{{ url_for('admin.complaints', page=p, q=query, status=current_status) }}">{{ p }}</a>
+          </li>
+          {% endfor %}
+          <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+            <a class="page-link"
+               href="{{ url_for('admin.complaints', page=pagination.page+1, q=query, status=current_status) }}">
+              <i class="bi bi-chevron-right"></i>
+            </a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state py-5 text-center">
+      <i class="bi bi-chat-square-x display-4 text-muted"></i>
+      <p class="mt-3 text-muted">
+        {% if query or current_status %}
+          No complaints match your filter.
+          <br>
+          <a href="{{ url_for('admin.complaints') }}" class="btn btn-outline-secondary mt-2">Clear Filters</a>
+        {% else %}
+          No complaints have been raised yet.
+        {% endif %}
+      </p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

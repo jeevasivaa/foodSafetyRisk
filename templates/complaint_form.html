@@ -1,0 +1,176 @@
+{% extends 'base.html' %}
+{% block title %}Raise Complaint{% endblock %}
+{% block page_title %}Raise Complaint{% endblock %}
+
+{% block content %}
+<div class="content-header">
+  <h2 class="content-title">
+    <i class="bi bi-exclamation-triangle me-2 text-danger"></i>Raise Complaint
+  </h2>
+  <p class="content-subtitle">
+    Submitting complaint for <strong>{{ scan['product_name'] }}</strong> — {{ scan['brand'] }}
+  </p>
+</div>
+
+<div class="row g-4">
+  <!-- ── Complaint Form ──────────────────────────────────────────── -->
+  <div class="col-lg-7">
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+        <h5 class="fw-bold mb-0">
+          <i class="bi bi-file-earmark-text me-2 text-primary"></i>Complaint Details
+        </h5>
+      </div>
+      <div class="card-body p-4">
+        <form method="POST"
+              action="{{ url_for('customer.raise_complaint', scan_id=scan['id']) }}"
+              enctype="multipart/form-data" id="complaintForm" novalidate>
+
+          <!-- Pre-filled Product Info (read-only) -->
+          <div class="row g-3 mb-4">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold text-muted small">PRODUCT NAME</label>
+              <input type="text" class="form-control bg-light"
+                     value="{{ scan['product_name'] }}" readonly />
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold text-muted small">BRAND</label>
+              <input type="text" class="form-control bg-light"
+                     value="{{ scan['brand'] }}" readonly />
+            </div>
+            <div class="col-md-12">
+              <label class="form-label fw-semibold text-muted small">CATEGORY</label>
+              <input type="text" class="form-control bg-light"
+                     value="{{ scan['category'] }}" readonly />
+            </div>
+          </div>
+
+          <!-- Problem Description -->
+          <div class="mb-4">
+            <label for="description" class="form-label fw-semibold">
+              Problem Description <span class="text-danger">*</span>
+            </label>
+            <textarea class="form-control" id="description" name="description"
+                      rows="5" required
+                      placeholder="Describe the issue with the product package in detail..."></textarea>
+            <div class="form-text">Minimum 20 characters. Be specific about the problem.</div>
+          </div>
+
+          <!-- Complaint Image -->
+          <div class="mb-4">
+            <label class="form-label fw-semibold">
+              Complaint Image
+              <small class="text-muted fw-normal ms-2">Optional — JPG, JPEG, PNG</small>
+            </label>
+            <div class="upload-dropzone upload-dropzone-secondary"
+                 onclick="document.getElementById('complaint_image').click()">
+              <div class="upload-dropzone-inner" id="compImgDropzone">
+                <i class="bi bi-camera display-6 text-secondary mb-2"></i>
+                <p class="text-muted mb-0">Click to upload complaint image</p>
+              </div>
+            </div>
+            <input type="file" class="d-none" id="complaint_image" name="complaint_image"
+                   accept=".jpg,.jpeg,.png"
+                   onchange="previewImage(this, 'compImgDropzone', 'compImgPreview')" />
+            <img id="compImgPreview" class="img-preview d-none mt-2" alt="Complaint image preview" />
+          </div>
+
+          <!-- Bill Image -->
+          <div class="mb-4">
+            <label class="form-label fw-semibold">
+              Purchase Bill
+              <small class="text-muted fw-normal ms-2">Optional — Upload new or use product bill</small>
+            </label>
+            {% if scan['bill_image'] %}
+            <div class="alert alert-info py-2 mb-2">
+              <i class="bi bi-receipt me-2"></i>
+              A bill image from your product upload is already attached. Upload a new one to replace it.
+            </div>
+            {% endif %}
+            <div class="upload-dropzone upload-dropzone-secondary"
+                 onclick="document.getElementById('bill_image').click()">
+              <div class="upload-dropzone-inner" id="billDropzone">
+                <i class="bi bi-receipt display-6 text-secondary mb-2"></i>
+                <p class="text-muted mb-0">Click to upload purchase bill</p>
+              </div>
+            </div>
+            <input type="file" class="d-none" id="bill_image" name="bill_image"
+                   accept=".jpg,.jpeg,.png"
+                   onchange="previewImage(this, 'billDropzone', 'billPreview')" />
+            <img id="billPreview" class="img-preview d-none mt-2" alt="Bill preview" />
+          </div>
+
+          <div class="d-flex gap-3">
+            <button type="submit" class="btn btn-danger btn-lg px-5" id="submitComplaintBtn">
+              <i class="bi bi-send me-2"></i>Submit Complaint
+            </button>
+            <a href="{{ url_for('customer.scan_result', scan_id=scan['id']) }}"
+               class="btn btn-outline-secondary btn-lg">
+              Cancel
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Info Sidebar ────────────────────────────────────────────── -->
+  <div class="col-lg-5">
+    <!-- Scan Summary Card -->
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+        <h6 class="fw-bold mb-0">
+          <i class="bi bi-cpu me-2 text-primary"></i>Scan Summary
+        </h6>
+      </div>
+      <div class="card-body px-4 pb-4">
+        <table class="table table-sm mb-0">
+          <tr>
+            <td class="text-muted fw-semibold" style="width:50%">Quality Score</td>
+            <td><strong>{{ scan['quality_score'] }}%</strong></td>
+          </tr>
+          <tr>
+            <td class="text-muted fw-semibold">Condition</td>
+            <td>{{ scan['package_condition'] }}</td>
+          </tr>
+          <tr>
+            <td class="text-muted fw-semibold">Status</td>
+            <td>
+              {% if scan['status'] == 'Safe' %}
+                <span class="badge badge-safe">Safe</span>
+              {% elif scan['status'] == 'Warning' %}
+                <span class="badge badge-warning-custom">Warning</span>
+              {% else %}
+                <span class="badge badge-unsafe">Unsafe</span>
+              {% endif %}
+            </td>
+          </tr>
+          <tr>
+            <td class="text-muted fw-semibold">Expiry Date</td>
+            <td>{{ scan['expiry_date'] }}</td>
+          </tr>
+          <tr>
+            <td class="text-muted fw-semibold">Damage</td>
+            <td>{{ scan['damage_percentage'] }}</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Info Card -->
+    <div class="card border-0 bg-warning bg-opacity-10 border-warning border-start border-4">
+      <div class="card-body p-4">
+        <h6 class="fw-bold mb-2 text-warning">
+          <i class="bi bi-info-circle-fill me-2"></i>What Happens Next?
+        </h6>
+        <ol class="mb-0 small text-muted ps-3">
+          <li class="mb-1">Your complaint is assigned a unique ID</li>
+          <li class="mb-1">Admin reviews within 2–3 business days</li>
+          <li class="mb-1">Status updates: Pending → Approved / Rejected</li>
+          <li>Resolution communicated via platform</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

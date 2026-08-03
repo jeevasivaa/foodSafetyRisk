@@ -1,0 +1,231 @@
+{% extends 'base.html' %}
+{% block title %}Scan Result{% endblock %}
+{% block page_title %}Scan Result{% endblock %}
+
+{% block content %}
+<div class="content-header">
+  <h2 class="content-title">
+    <i class="bi bi-cpu me-2 text-primary"></i>AI Analysis Result
+  </h2>
+  <p class="content-subtitle">Package condition analysis for <strong>{{ scan['product_name'] }}</strong></p>
+</div>
+
+<div class="row g-4">
+  <!-- ── Left: Product Image & Details ─────────────────────────── -->
+  <div class="col-lg-4">
+    <!-- Product Image -->
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-body p-0 overflow-hidden rounded">
+        {% if scan['image'] %}
+        <img src="{{ url_for('static', filename='uploads/' + scan['image']) }}"
+             alt="{{ scan['product_name'] }}"
+             class="img-fluid w-100 rounded"
+             style="max-height:300px;object-fit:cover" />
+        {% else %}
+        <div class="d-flex align-items-center justify-content-center bg-light rounded"
+             style="height:200px">
+          <i class="bi bi-image text-muted display-4"></i>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Product Details -->
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+        <h6 class="fw-bold mb-0">
+          <i class="bi bi-box-seam me-2 text-primary"></i>Product Details
+        </h6>
+      </div>
+      <div class="card-body px-4 pb-4">
+        <table class="table table-sm mb-0">
+          <tr>
+            <td class="text-muted fw-semibold" style="width:45%">Product</td>
+            <td class="fw-semibold">{{ scan['product_name'] }}</td>
+          </tr>
+          <tr>
+            <td class="text-muted fw-semibold">Brand</td>
+            <td>{{ scan['brand'] }}</td>
+          </tr>
+          <tr>
+            <td class="text-muted fw-semibold">Category</td>
+            <td>{{ scan['category'] }}</td>
+          </tr>
+          <tr>
+            <td class="text-muted fw-semibold">Purchased</td>
+            <td>{{ scan['purchase_date'] }}</td>
+          </tr>
+          <tr>
+            <td class="text-muted fw-semibold">Scanned On</td>
+            <td>{{ scan['scan_date'][:16] }}</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="d-grid gap-2">
+      {% if not complaint %}
+      <a href="{{ url_for('customer.raise_complaint', scan_id=scan['id']) }}"
+         class="btn btn-danger btn-lg">
+        <i class="bi bi-exclamation-triangle me-2"></i>Raise Complaint
+      </a>
+      {% else %}
+      <button class="btn btn-secondary btn-lg" disabled>
+        <i class="bi bi-check-circle me-2"></i>Complaint Raised
+      </button>
+      {% endif %}
+      <a href="{{ url_for('customer.scan_history') }}" class="btn btn-outline-primary btn-lg">
+        <i class="bi bi-clock-history me-2"></i>Back to History
+      </a>
+    </div>
+  </div>
+
+  <!-- ── Right: Analysis Results ───────────────────────────────── -->
+  <div class="col-lg-8">
+    <!-- Quality Score Hero Card -->
+    <div class="card shadow-sm border-0 mb-4 result-hero-card
+      {% if scan['status'] == 'Safe' %}result-safe
+      {% elif scan['status'] == 'Warning' %}result-warning
+      {% else %}result-unsafe{% endif %}">
+      <div class="card-body p-4 d-flex align-items-center gap-4">
+        <div class="score-circle
+          {% if scan['quality_score']|int >= 80 %}score-good
+          {% elif scan['quality_score']|int >= 50 %}score-fair
+          {% else %}score-poor{% endif %}">
+          {{ scan['quality_score'] }}<small>%</small>
+        </div>
+        <div>
+          <div class="text-muted small fw-semibold mb-1">OVERALL QUALITY SCORE</div>
+          <h3 class="fw-bold mb-1">
+            {% if scan['status'] == 'Safe' %}
+              <i class="bi bi-check-circle-fill text-success me-2"></i>Safe to Consume
+            {% elif scan['status'] == 'Warning' %}
+              <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>Use with Caution
+            {% else %}
+              <i class="bi bi-x-circle-fill text-danger me-2"></i>Not Safe
+            {% endif %}
+          </h3>
+          <p class="mb-0 text-muted">
+            Package Condition:
+            <strong>{{ scan['package_condition'] }}</strong>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Analysis Details -->
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+        <h5 class="fw-bold mb-0">
+          <i class="bi bi-robot me-2 text-primary"></i>AI Analysis Details
+        </h5>
+      </div>
+      <div class="card-body p-4">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="analysis-item">
+              <div class="analysis-icon bg-primary-soft">
+                <i class="bi bi-calendar-x text-primary"></i>
+              </div>
+              <div class="analysis-info">
+                <div class="analysis-label">Expiry Date</div>
+                <div class="analysis-value">{{ scan['expiry_date'] }}</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="analysis-item">
+              <div class="analysis-icon bg-success-soft">
+                <i class="bi bi-calendar-check text-success"></i>
+              </div>
+              <div class="analysis-info">
+                <div class="analysis-label">Manufacturing Date</div>
+                <div class="analysis-value">{{ scan['manufacturing_date'] }}</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="analysis-item">
+              <div class="analysis-icon bg-info-soft">
+                <i class="bi bi-box text-info"></i>
+              </div>
+              <div class="analysis-info">
+                <div class="analysis-label">Package Condition</div>
+                <div class="analysis-value">{{ scan['package_condition'] }}</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="analysis-item">
+              <div class="analysis-icon bg-warning-soft">
+                <i class="bi bi-exclamation-diamond text-warning"></i>
+              </div>
+              <div class="analysis-info">
+                <div class="analysis-label">Damage Percentage</div>
+                <div class="analysis-value">{{ scan['damage_percentage'] }}</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="analysis-item">
+              <div class="analysis-icon bg-purple-soft">
+                <i class="bi bi-upc-scan text-purple"></i>
+              </div>
+              <div class="analysis-info">
+                <div class="analysis-label">Barcode</div>
+                <div class="analysis-value">{{ scan['barcode'] }}</div>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="analysis-item">
+              <div class="analysis-icon bg-success-soft">
+                <i class="bi bi-graph-up text-success"></i>
+              </div>
+              <div class="analysis-info">
+                <div class="analysis-label">Quality Score</div>
+                <div class="analysis-value">
+                  {{ scan['quality_score'] }}%
+                  <div class="progress mt-1" style="height:4px">
+                    <div class="progress-bar
+                      {% if scan['quality_score']|int >= 80 %}bg-success
+                      {% elif scan['quality_score']|int >= 50 %}bg-warning
+                      {% else %}bg-danger{% endif %}"
+                      style="width:{{ scan['quality_score'] }}%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recommendation Card -->
+    <div class="card shadow-sm border-0
+      {% if scan['status'] == 'Safe' %}border-start border-success border-4
+      {% elif scan['status'] == 'Warning' %}border-start border-warning border-4
+      {% else %}border-start border-danger border-4{% endif %}">
+      <div class="card-body p-4">
+        <h6 class="fw-bold mb-2">
+          <i class="bi bi-lightbulb-fill text-warning me-2"></i>Recommendation
+        </h6>
+        {% if scan['status'] == 'Safe' %}
+          <p class="mb-0 text-success fw-semibold">
+            ✅ This product is safe to consume. Package is in good condition with no significant damage detected.
+          </p>
+        {% elif scan['status'] == 'Warning' %}
+          <p class="mb-0 text-warning fw-semibold">
+            ⚠️ Minor issues detected. Check the product carefully before consuming. Consider raising a complaint if concerned.
+          </p>
+        {% else %}
+          <p class="mb-0 text-danger fw-semibold">
+            ❌ This product should NOT be consumed. Significant damage or expiry issues detected. Please raise a complaint immediately.
+          </p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

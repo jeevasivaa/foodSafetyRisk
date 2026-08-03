@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% block title %}Login{% endblock %}
+
+{% block auth_content %}
+<div class="auth-page">
+  <!-- Left Panel — Branding -->
+  <div class="auth-panel-left d-none d-lg-flex">
+    <div class="auth-brand-content">
+      <!-- Logo with text in a visible frame -->
+      <div class="auth-logo-frame">
+        <img src="{{ url_for('static', filename='images/logowithtext.png') }}"
+             alt="FoodQuality AI"
+             class="auth-brand-logo" />
+      </div>
+      <p class="auth-brand-subtitle mt-4">Intelligent Packed Food Package<br>Condition Analysis System</p>
+
+      <div class="auth-feature-list mt-5">
+        <div class="auth-feature">
+          <i class="bi bi-camera2"></i>
+          <span>AI-powered package scanning</span>
+        </div>
+        <div class="auth-feature">
+          <i class="bi bi-calendar-check"></i>
+          <span>Expiry &amp; manufacturing date detection</span>
+        </div>
+        <div class="auth-feature">
+          <i class="bi bi-graph-up-arrow"></i>
+          <span>Quality score &amp; damage analysis</span>
+        </div>
+        <div class="auth-feature">
+          <i class="bi bi-chat-square-text"></i>
+          <span>Integrated complaint management</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Panel — Form -->
+  <div class="auth-panel-right">
+    <div class="auth-form-card">
+      <!-- Mobile Logo -->
+      <div class="text-center d-lg-none mb-4">
+        <img src="{{ url_for('static', filename='images/logowithtext.png') }}"
+             alt="FoodQuality AI"
+             class="auth-mobile-logo mb-2" />
+      </div>
+
+      <h2 class="auth-form-title">Welcome back 👋</h2>
+      <p class="auth-form-subtitle">Sign in to your account to continue</p>
+
+      <form method="POST" action="{{ url_for('auth.login') }}" id="loginForm" novalidate>
+        <div class="mb-4">
+          <label for="email" class="form-label fw-semibold">Email Address</label>
+          <div class="input-group input-group-lg">
+            <span class="input-group-text bg-transparent">
+              <i class="bi bi-envelope text-primary"></i>
+            </span>
+            <input type="email" class="form-control" id="email" name="email"
+                   placeholder="you@example.com" required autocomplete="email" />
+          </div>
+        </div>
+
+        <div class="mb-4">
+          <label for="password" class="form-label fw-semibold">Password</label>
+          <div class="input-group input-group-lg">
+            <span class="input-group-text bg-transparent">
+              <i class="bi bi-lock text-primary"></i>
+            </span>
+            <input type="password" class="form-control" id="password" name="password"
+                   placeholder="Enter your password" required autocomplete="current-password" />
+            <button class="btn btn-outline-secondary" type="button" id="togglePwd"
+                    onclick="togglePassword('password', this)">
+              <i class="bi bi-eye"></i>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-lg w-100 mt-2" id="loginBtn">
+          <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
+        </button>
+      </form>
+
+      <p class="text-center mt-4 mb-0">
+        Don't have an account?
+        <a href="{{ url_for('auth.register') }}" class="fw-semibold text-primary">Register here</a>
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,223 @@
+{% extends 'base.html' %}
+{% block title %}Complaint {{ complaint['complaint_id'] }}{% endblock %}
+{% block page_title %}Complaint Details{% endblock %}
+
+{% block content %}
+<div class="content-header">
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+    <div>
+      <h2 class="content-title">
+        <i class="bi bi-file-earmark-text me-2 text-primary"></i>Complaint Details
+      </h2>
+      <p class="content-subtitle">
+        <code class="text-primary fw-bold fs-6">{{ complaint['complaint_id'] }}</code>
+      </p>
+    </div>
+    <a href="{{ url_for('customer.my_complaints') }}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left me-2"></i>Back to Complaints
+    </a>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- ── Left: Complaint Info ────────────────────────────────────── -->
+  <div class="col-lg-8">
+    <!-- Status Banner -->
+    <div class="alert
+      {% if complaint['status'] == 'Pending' %}alert-warning
+      {% elif complaint['status'] == 'Approved' %}alert-success
+      {% elif complaint['status'] == 'Resolved' %}alert-primary
+      {% else %}alert-danger{% endif %}
+      d-flex align-items-center gap-3 mb-4" role="alert">
+      <i class="bi bi-
+        {% if complaint['status'] == 'Pending' %}hourglass-split
+        {% elif complaint['status'] == 'Approved' %}check-circle-fill
+        {% elif complaint['status'] == 'Resolved' %}check2-all
+        {% else %}x-circle-fill{% endif %}
+        fs-4"></i>
+      <div>
+        <strong>Complaint Status: {{ complaint['status'] }}</strong>
+        <div class="small mt-1">
+          {% if complaint['status'] == 'Pending' %}
+            Your complaint is under review by our admin team.
+          {% elif complaint['status'] == 'Approved' %}
+            Your complaint has been approved and is being processed.
+          {% elif complaint['status'] == 'Resolved' %}
+            Your complaint has been resolved successfully.
+          {% else %}
+            Your complaint has been reviewed and rejected.
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Product & Complaint Info -->
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+        <h5 class="fw-bold mb-0">
+          <i class="bi bi-box-seam me-2 text-primary"></i>Product Information
+        </h5>
+      </div>
+      <div class="card-body p-4">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="detail-field">
+              <div class="detail-label">Product Name</div>
+              <div class="detail-value fw-semibold">{{ complaint['product_name'] }}</div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="detail-field">
+              <div class="detail-label">Brand</div>
+              <div class="detail-value">{{ complaint['brand'] }}</div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="detail-field">
+              <div class="detail-label">Category</div>
+              <div class="detail-value">{{ complaint['category'] }}</div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="detail-field">
+              <div class="detail-label">Purchase Date</div>
+              <div class="detail-value">{{ complaint['purchase_date'] }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Problem Description -->
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+        <h5 class="fw-bold mb-0">
+          <i class="bi bi-chat-left-text me-2 text-primary"></i>Problem Description
+        </h5>
+      </div>
+      <div class="card-body p-4">
+        <p class="mb-0" style="line-height:1.8;white-space:pre-wrap">{{ complaint['description'] }}</p>
+      </div>
+    </div>
+
+    <!-- Scan Analysis Summary -->
+    <div class="card shadow-sm border-0">
+      <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+        <h5 class="fw-bold mb-0">
+          <i class="bi bi-cpu me-2 text-primary"></i>Related Scan Analysis
+        </h5>
+      </div>
+      <div class="card-body p-4">
+        <div class="row g-3">
+          <div class="col-6 col-md-3">
+            <div class="text-center p-3 bg-light rounded">
+              <div class="fw-bold text-primary fs-5">{{ complaint['quality_score'] }}%</div>
+              <div class="text-muted small">Quality</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="text-center p-3 bg-light rounded">
+              <div class="fw-bold fs-5">
+                {% if complaint['scan_status'] == 'Safe' %}
+                  <span class="text-success">Safe</span>
+                {% elif complaint['scan_status'] == 'Warning' %}
+                  <span class="text-warning">Warning</span>
+                {% else %}
+                  <span class="text-danger">Unsafe</span>
+                {% endif %}
+              </div>
+              <div class="text-muted small">Status</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="text-center p-3 bg-light rounded">
+              <div class="fw-bold fs-6">{{ complaint['package_condition'] }}</div>
+              <div class="text-muted small">Condition</div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="text-center p-3 bg-light rounded">
+              <div class="fw-bold fs-6">{{ complaint['expiry_date'] }}</div>
+              <div class="text-muted small">Expiry</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Right: Images & Meta ────────────────────────────────────── -->
+  <div class="col-lg-4">
+    <!-- Product Image -->
+    {% if complaint['product_image'] %}
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-transparent border-0 pt-3 px-4 pb-0">
+        <h6 class="fw-bold mb-0">Product Image</h6>
+      </div>
+      <div class="card-body p-3">
+        <img src="{{ url_for('static', filename='uploads/' + complaint['product_image']) }}"
+             alt="Product" class="img-fluid rounded w-100"
+             style="max-height:220px;object-fit:cover" />
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Complaint Image -->
+    {% if complaint['image'] %}
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-transparent border-0 pt-3 px-4 pb-0">
+        <h6 class="fw-bold mb-0">Complaint Image</h6>
+      </div>
+      <div class="card-body p-3">
+        <img src="{{ url_for('static', filename='uploads/' + complaint['image']) }}"
+             alt="Complaint" class="img-fluid rounded w-100"
+             style="max-height:200px;object-fit:cover" />
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Bill Image -->
+    {% if complaint['bill_image'] %}
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-transparent border-0 pt-3 px-4 pb-0">
+        <h6 class="fw-bold mb-0">Purchase Bill</h6>
+      </div>
+      <div class="card-body p-3">
+        <img src="{{ url_for('static', filename='uploads/' + complaint['bill_image']) }}"
+             alt="Bill" class="img-fluid rounded w-100"
+             style="max-height:200px;object-fit:cover" />
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Meta Info -->
+    <div class="card shadow-sm border-0">
+      <div class="card-body p-4">
+        <h6 class="fw-bold mb-3">Complaint Meta</h6>
+        <div class="mb-2">
+          <div class="text-muted small">Complaint ID</div>
+          <code class="text-primary">{{ complaint['complaint_id'] }}</code>
+        </div>
+        <div class="mb-2">
+          <div class="text-muted small">Filed On</div>
+          <div>{{ complaint['created_at'][:16] }}</div>
+        </div>
+        <div>
+          <div class="text-muted small">Current Status</div>
+          <div>
+            {% if complaint['status'] == 'Pending' %}
+              <span class="badge badge-pending">Pending</span>
+            {% elif complaint['status'] == 'Approved' %}
+              <span class="badge badge-approved">Approved</span>
+            {% elif complaint['status'] == 'Resolved' %}
+              <span class="badge badge-resolved">Resolved</span>
+            {% else %}
+              <span class="badge badge-rejected">Rejected</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
