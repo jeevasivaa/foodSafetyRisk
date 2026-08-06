@@ -3,6 +3,5 @@ Werkzeug==3.0.3
 easyocr
 ultralytics
 opencv-python-headless
-pyzbar
 Pillow
 numpy

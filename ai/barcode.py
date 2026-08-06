@@ -1,26 +1,17 @@
 """
-ai/barcode.py — Barcode detection using pyzbar.
+ai/barcode.py — Barcode and QR code detection using pure OpenCV.
 
-Tries multiple image variants (original, grayscale, sharpened) to maximise
-detection rate on real-world product photos.
+Replaces pyzbar to avoid Windows missing-DLL issues (libzbar-64.dll).
+Uses cv2.barcode.BarcodeDetector and cv2.QRCodeDetector.
 """
 import cv2
 import numpy as np
-
-try:
-    from pyzbar.pyzbar import decode as pyzbar_decode
-    PYZBAR_AVAILABLE = True
-except Exception:
-    pyzbar_decode = None
-    PYZBAR_AVAILABLE = False
-    print("[Barcode] pyzbar not available (missing DLL or import error) — barcode detection disabled.")
-
 from ai.preprocessing import load_bgr
 
 
 def detect_barcode(image_path: str) -> dict:
     """
-    Detect a barcode / QR code in the product image.
+    Detect a barcode / QR code in the product image using OpenCV.
 
     Args:
         image_path: Path to the uploaded product image.
@@ -28,29 +19,41 @@ def detect_barcode(image_path: str) -> dict:
     Returns:
         dict with keys:
             number (str): Barcode data string or "Not Detected"
-            type   (str): Barcode symbology (e.g. "EAN13") or ""
+            type   (str): Barcode symbology (e.g. "Barcode" or "QR Code") or ""
     """
     _default = {"number": "Not Detected", "type": ""}
-
-    if not PYZBAR_AVAILABLE:
-        return _default
 
     try:
         img_bgr = load_bgr(image_path)
         if img_bgr is None:
             return _default
 
-        # Try a sequence of increasingly aggressive pre-processing passes
+        # Try a sequence of images (raw, grayscale, sharpened, thresholded)
         candidates = _generate_candidates(img_bgr)
 
+        # 1. Try OpenCV Barcode Detector first
+        try:
+            barcode_detector = cv2.barcode.BarcodeDetector()
+            for candidate in candidates:
+                # Returns (ok, decoded_info, decoded_type, corners)
+                ok, decoded_info, decoded_type, corners = barcode_detector.detectAndDecode(candidate)
+                if ok and decoded_info and len(decoded_info) > 0 and decoded_info[0]:
+                    # decoded_info is usually a tuple/list of strings for each detected barcode
+                    val = decoded_info[0] if isinstance(decoded_info, (list, tuple)) else decoded_info
+                    btype = decoded_type[0] if isinstance(decoded_type, (list, tuple)) else decoded_type
+                    
+                    # Ensure valid string
+                    if val and str(val).strip():
+                        return {"number": str(val).strip(), "type": str(btype) if btype else "Barcode"}
+        except AttributeError:
+            pass # cv2.barcode module not available in this OpenCV version
+
+        # 2. Try OpenCV QR Code Detector as a fallback
+        qr_detector = cv2.QRCodeDetector()
         for candidate in candidates:
-            decoded = pyzbar_decode(candidate)
-            if decoded:
-                best = decoded[0]
-                data = best.data.decode("utf-8", errors="replace").strip()
-                btype = best.type if best.type else ""
-                if data:
-                    return {"number": data, "type": btype}
+            val, pts, rect = qr_detector.detectAndDecode(candidate)
+            if val and str(val).strip():
+                return {"number": str(val).strip(), "type": "QR Code"}
 
         return _default
 
@@ -63,37 +66,28 @@ def detect_barcode(image_path: str) -> dict:
 
 def _generate_candidates(img_bgr: np.ndarray) -> list:
     """
-    Return a list of image variants to try for barcode detection.
-    pyzbar works best with clean, high-contrast grayscale images.
+    Return a list of image variants to try for detection.
     """
     candidates = []
 
-    # 1. Raw grayscale
+    # 1. Raw grayscale (usually best for barcodes)
     gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
     candidates.append(gray)
+    
+    # 2. Original BGR
+    candidates.append(img_bgr)
 
-    # 2. Sharpened grayscale
+    # 3. Sharpened grayscale
     kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
     sharp = cv2.filter2D(gray, -1, kernel)
     candidates.append(sharp)
 
-    # 3. Adaptive threshold (helps with bad lighting)
+    # 4. Adaptive threshold (helps with bad lighting)
     thresh = cv2.adaptiveThreshold(
         gray, 255,
         cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
         cv2.THRESH_BINARY, 11, 2
     )
     candidates.append(thresh)
-
-    # 4. Upscaled (for small barcodes)
-    h, w = img_bgr.shape[:2]
-    if max(h, w) < 800:
-        scale = 800 / max(h, w)
-        up_gray = cv2.resize(gray, (int(w * scale), int(h * scale)),
-                             interpolation=cv2.INTER_CUBIC)
-        candidates.append(up_gray)
-
-    # 5. Original BGR (pyzbar can handle colour images too)
-    candidates.append(img_bgr)
 
     return candidates

@@ -8,21 +8,41 @@ Flask routes call ONLY this function:
 
 The returned dict is backwards-compatible with Phase 1 and adds new fields.
 """
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from ai.barcode          import detect_barcode
 from ai.ocr              import run_ocr
 from ai.damage_detection import detect_damage
 from ai.quality_score    import calculate_quality_score
 
 
+_BARCODE_DEFAULT = {"number": "Not Detected", "type": ""}
+_OCR_DEFAULT = {
+    "expiry_date":        "Not Detected",
+    "manufacturing_date": "Not Detected",
+    "batch_number":       "Not Detected",
+    "mrp":                "Not Detected",
+    "net_weight":         "Not Detected",
+    "ocr_text":           "",
+    "ocr_confidence":     "0",
+}
+_DAMAGE_DEFAULT = {
+    "damage_detected": False,
+    "damage_type":     "Package Appears Normal",
+    "confidence":      0.0,
+    "annotated_image": "",
+}
+
+
 def analyze_product(image_path: str) -> dict:
     """
-    Full AI analysis pipeline for a food package image.
+    Full AI analysis pipeline — Steps 1–3 run in PARALLEL for speed.
 
     Pipeline:
-        1. Barcode detection   (pyzbar)
-        2. OCR extraction      (EasyOCR)
-        3. Damage detection    (YOLOv8 → OpenCV heuristic fallback)
-        4. Quality scoring     (rule-based)
+        ┌─ Step 1: Barcode detection  (OpenCV BarcodeDetector / QRCodeDetector)
+        ├─ Step 2: OCR extraction     (EasyOCR)         ← longest step
+        └─ Step 3: Damage detection   (OpenCV heuristic)
+
+        → Step 4: Quality scoring     (depends on OCR + damage results)
 
     Args:
         image_path (str): Absolute path to the uploaded product image.
@@ -31,32 +51,33 @@ def analyze_product(image_path: str) -> dict:
         dict — all keys from Phase 1 PLUS extended Phase 2 fields.
         Never raises; all failures return safe defaults.
     """
-    # ── Step 1: Barcode ───────────────────────────────────────────────────
-    barcode_result = _safe_call(detect_barcode, image_path, {
-        "number": "Not Detected",
-        "type":   "",
-    })
+    barcode_result = _BARCODE_DEFAULT.copy()
+    ocr_result     = _OCR_DEFAULT.copy()
+    damage_result  = _DAMAGE_DEFAULT.copy()
 
-    # ── Step 2: OCR ───────────────────────────────────────────────────────
-    ocr_result = _safe_call(run_ocr, image_path, {
-        "expiry_date":        "Not Detected",
-        "manufacturing_date": "Not Detected",
-        "batch_number":       "Not Detected",
-        "mrp":                "Not Detected",
-        "net_weight":         "Not Detected",
-        "ocr_text":           "",
-        "ocr_confidence":     "0",
-    })
+    # ── Steps 1–3 in parallel ─────────────────────────────────────────────
+    tasks = {
+        "barcode": (detect_barcode, _BARCODE_DEFAULT),
+        "ocr":     (run_ocr,        _OCR_DEFAULT),
+        "damage":  (detect_damage,  _DAMAGE_DEFAULT),
+    }
 
-    # ── Step 3: Damage detection ──────────────────────────────────────────
-    damage_result = _safe_call(detect_damage, image_path, {
-        "damage_detected": False,
-        "damage_type":     "Package Appears Normal",
-        "confidence":      0.0,
-        "annotated_image": "",
-    })
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = {
+            executor.submit(_safe_call, fn, image_path, default): key
+            for key, (fn, default) in tasks.items()
+        }
+        for future in as_completed(futures):
+            key = futures[future]
+            result = future.result()
+            if key == "barcode":
+                barcode_result = result
+            elif key == "ocr":
+                ocr_result = result
+            elif key == "damage":
+                damage_result = result
 
-    # ── Step 4: Quality score ─────────────────────────────────────────────
+    # ── Step 4: Quality score (depends on steps 2 & 3) ───────────────────
     quality_result = _safe_call(
         lambda _: calculate_quality_score(ocr_result, damage_result),
         image_path, {

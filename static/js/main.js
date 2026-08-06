@@ -138,129 +138,51 @@ function togglePassword(fieldId, btn) {
 }
 
 
-// ── AI Analysis Progress Loader ────────────────────────────────────────────────
+// ── Loading Spinner & Progress ──────────────────────────────────────────────────
+let _pctTimer = null;
+let _currentPct = 0;
 
 /**
- * Pipeline stages: each entry is
- *   [targetPercent, durationMs, stepLabel]
- *
- * Timings are weighted to match the real AI pipeline durations.
- * The bar intentionally slows near 95% and never reaches 100%
- * (the page redirect completes it naturally).
- */
-const _LOADING_STAGES = [
-  [  8,  400, "Uploading image to server..."       ],
-  [ 15,  700, "Preprocessing & enhancing image..."  ],
-  [ 25, 1000, "Detecting barcode & QR codes..."     ],
-  [ 60, 9000, "Running OCR text extraction..."      ],  // EasyOCR is slowest
-  [ 80, 4000, "Analyzing package for damage..."     ],
-  [ 90, 1500, "Calculating quality score..."         ],
-  [ 95, 1000, "Generating recommendations..."       ],
-  [ 99, 5000, "Finalizing results..."               ],  // holds here until redirect
-];
-
-let _loadingTimer    = null;   // setInterval handle
-let _loadingStageIdx = 0;
-let _loadingPct      = 0;      // current displayed percentage
-
-// Circumference of circle with r=50
-const _RING_CIRC = 2 * Math.PI * 50;  // ≈ 314.16
-
-/**
- * Show the loading overlay and start the progress animation.
- * @param {string} message - Optional headline override
+ * Show the full-page loading overlay and start the percentage counter.
+ * @param {string} message - Optional message to display
  */
 function showLoading(message) {
   const overlay = document.getElementById("loadingOverlay");
-  if (!overlay) return;
-  overlay.style.display = "flex";
+  const msgEl   = document.getElementById("loadingMsg");
+  const pctEl   = document.getElementById("loadingPct");
 
-  // Update headline
-  if (message) {
-    const msgEl = document.getElementById("loadingMsg");
-    if (msgEl) msgEl.textContent = message;
+  if (overlay) overlay.style.display = "flex";
+  if (msgEl && message) msgEl.textContent = message;
+
+  if (pctEl) {
+    _currentPct = 0;
+    pctEl.textContent = "0%";
+    if (_pctTimer) clearInterval(_pctTimer);
+    
+    // Simulate progress: fast to 20%, then slower up to 99%
+    _pctTimer = setInterval(() => {
+      if (_currentPct < 20) {
+        _currentPct += 4;
+      } else if (_currentPct < 60) {
+        _currentPct += 2;
+      } else if (_currentPct < 85) {
+        _currentPct += 1;
+      } else if (_currentPct < 99) {
+        _currentPct += 0.5;
+      }
+      pctEl.textContent = Math.floor(_currentPct) + "%";
+    }, 150);
   }
-
-  // Reset state
-  _loadingPct      = 0;
-  _loadingStageIdx = 0;
-  _setLoadingProgress(0, "Initializing...");
-
-  // Clear any previous timer
-  if (_loadingTimer) clearInterval(_loadingTimer);
-
-  // Kick off the first stage immediately
-  _advanceLoadingStage();
 }
 
-/** Advance through the pipeline stages one tick at a time. */
-function _advanceLoadingStage() {
-  if (_loadingStageIdx >= _LOADING_STAGES.length) return;
-
-  const [targetPct, durationMs, label] = _LOADING_STAGES[_loadingStageIdx];
-  const startPct  = _loadingPct;
-  const range     = targetPct - startPct;
-  const tickMs    = 80;                       // update every 80 ms
-  const ticks     = Math.max(1, Math.round(durationMs / tickMs));
-  let   tick      = 0;
-
-  // Update step label immediately when entering stage
-  const stepEl = document.getElementById("loadingStep");
-  if (stepEl) stepEl.textContent = label;
-
-  if (_loadingTimer) clearInterval(_loadingTimer);
-
-  _loadingTimer = setInterval(() => {
-    tick++;
-    // Ease-out curve: fast at start, slows toward end of stage
-    const progress = 1 - Math.pow(1 - tick / ticks, 2);
-    const newPct   = Math.round(startPct + range * progress);
-    _loadingPct    = newPct;
-    _setLoadingProgress(newPct, label);
-
-    if (tick >= ticks) {
-      clearInterval(_loadingTimer);
-      _loadingStageIdx++;
-      // Short gap before next stage
-      setTimeout(_advanceLoadingStage, 120);
-    }
-  }, tickMs);
-}
-
-/** Update the ring, bar, and percentage label. */
-function _setLoadingProgress(pct, _label) {
-  pct = Math.min(99, Math.max(0, pct));
-
-  // Ring (stroke-dashoffset: 0 = full, 314.16 = empty)
-  const ringFill = document.getElementById("loadingRingFill");
-  if (ringFill) {
-    ringFill.style.strokeDashoffset = _RING_CIRC * (1 - pct / 100);
-  }
-
-  // Percentage text inside ring
-  const pctEl = document.getElementById("loadingPct");
-  if (pctEl) pctEl.textContent = pct + "%";
-
-  // Linear bar + bar label
-  const barFill  = document.getElementById("loadingBarFill");
-  const barLabel = document.getElementById("loadingBarPct");
-  if (barFill)  barFill.style.width  = pct + "%";
-  if (barLabel) barLabel.textContent = pct + "%";
-}
-
-/** Hide the loading overlay and reset all progress elements. */
+/** Hide the full-page loading overlay and reset progress. */
 function hideLoading() {
-  if (_loadingTimer) { clearInterval(_loadingTimer); _loadingTimer = null; }
   const overlay = document.getElementById("loadingOverlay");
   if (overlay) overlay.style.display = "none";
-  // Reset for next use
-  _loadingPct      = 0;
-  _loadingStageIdx = 0;
-  _setLoadingProgress(0, "");
-  const stepEl = document.getElementById("loadingStep");
-  if (stepEl) stepEl.textContent = "Please wait";
-  const msgEl = document.getElementById("loadingMsg");
-  if (msgEl) msgEl.textContent = "Initializing analysis...";
+  if (_pctTimer) {
+    clearInterval(_pctTimer);
+    _pctTimer = null;
+  }
 }
 
 

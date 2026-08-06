@@ -96,7 +96,21 @@ def run_ocr(image_path: str) -> dict:
         if reader is None:
             return _empty
 
-        results = reader.readtext(image_path, detail=1, paragraph=False)
+        # ── Fast image resize for OCR ─────────────────────────────────────
+        # Large camera images (4K+) are extremely slow on CPU.
+        # Downscale to a max dimension of 1024px before OCR.
+        import cv2
+        img = cv2.imread(image_path)
+        if img is None:
+            return _empty
+
+        h, w = img.shape[:2]
+        max_dim = 1024
+        if max(h, w) > max_dim:
+            scale = max_dim / max(h, w)
+            img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+
+        results = reader.readtext(img, detail=1, paragraph=False)
 
         if not results:
             return _empty

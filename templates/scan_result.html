@@ -340,35 +340,63 @@
       </div>
     </div>
 
-    <!-- Recommendation -->
-    <div class="card shadow-sm border-0
+    <!-- Suggestions & Summary -->
+    <div class="card shadow-sm border-0 mb-4
       {% if scan['status'] == 'Safe' %}border-start border-success border-4
       {% elif scan['status'] == 'Warning' %}border-start border-warning border-4
       {% else %}border-start border-danger border-4{% endif %}">
       <div class="card-body p-4">
+        <!-- Scanned Content Summary -->
+        <h6 class="fw-bold mb-3 text-secondary">
+          <i class="bi bi-card-text me-2"></i>Summary of Findings
+        </h6>
+        <p class="mb-4 text-muted" style="font-size: 0.95rem;">
+          We scanned the packaging for <strong>{{ scan['product_name'] }}</strong>.
+          {% if scan['ocr_text'] %}
+            The AI successfully extracted text including 
+            {% if scan['expiry_date'] and scan['expiry_date'] != 'Not Detected' %}expiry dates,{% endif %}
+            {% if scan['batch_number'] and scan['batch_number'] != 'Not Detected' %}batch numbers,{% endif %}
+            and other label information.
+          {% else %}
+            No clear text could be read from the label.
+          {% endif %}
+          
+          {% if scan['barcode_number'] %}
+            A {{ scan['barcode_type'] or 'barcode' }} was also found.
+          {% endif %}
+
+          The package condition is evaluated as <strong>{{ scan['package_condition']|lower }}</strong>
+          {% if scan['damage_type'] and scan['damage_type'] != 'Package Appears Normal' %}
+            due to suspected {{ scan['damage_type']|lower }}.
+          {% else %}
+            with no visible physical defects.
+          {% endif %}
+        </p>
+
+        <!-- Final Suggestion -->
         <h6 class="fw-bold mb-2">
-          <i class="bi bi-lightbulb-fill text-warning me-2"></i>Recommendation
+          <i class="bi bi-lightbulb-fill text-warning me-2"></i>Actionable Suggestion
         </h6>
         {% if scan['recommendation'] %}
-          <p class="mb-0 fw-semibold
-            {% if scan['status'] == 'Safe' %}text-success
-            {% elif scan['status'] == 'Warning' %}text-warning
-            {% else %}text-danger{% endif %}">
-            {{ scan['recommendation'] }}
-          </p>
+          <div class="p-3 rounded
+            {% if scan['status'] == 'Safe' %}bg-success-subtle text-success
+            {% elif scan['status'] == 'Warning' %}bg-warning-subtle text-warning-emphasis
+            {% else %}bg-danger-subtle text-danger{% endif %}">
+            <span class="fw-semibold">{{ scan['recommendation'] }}</span>
+          </div>
         {% else %}
           {% if scan['status'] == 'Safe' %}
-            <p class="mb-0 text-success fw-semibold">
+            <div class="p-3 rounded bg-success-subtle text-success fw-semibold">
               ✅ This product is safe to consume. Package is in good condition with no significant damage detected.
-            </p>
+            </div>
           {% elif scan['status'] == 'Warning' %}
-            <p class="mb-0 text-warning fw-semibold">
+            <div class="p-3 rounded bg-warning-subtle text-warning-emphasis fw-semibold">
               ⚠️ Minor issues detected. Check the product carefully before consuming. Consider raising a complaint if concerned.
-            </p>
+            </div>
           {% else %}
-            <p class="mb-0 text-danger fw-semibold">
+            <div class="p-3 rounded bg-danger-subtle text-danger fw-semibold">
               ❌ This product should NOT be consumed. Significant damage or expiry issues detected. Please raise a complaint immediately.
-            </p>
+            </div>
           {% endif %}
         {% endif %}
       </div>

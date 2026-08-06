@@ -78,13 +78,31 @@
        class="nav-link {% if request.endpoint in ['customer.my_complaints','customer.complaint_details'] %}active{% endif %}">
       <i class="bi bi-chat-square-text"></i> Complaints
     </a>
-    <div class="nav-section-label mt-3">Account</div>
-    <a href="{{ url_for('customer.profile') }}"
-       class="nav-link {% if request.endpoint == 'customer.profile' %}active{% endif %}">
-      <i class="bi bi-person-circle"></i> Profile
-    </a>
+
     {% endif %}
   </nav>
+
+  <!-- Sidebar Footer: Profile & Logout -->
+  <div class="sidebar-footer mt-auto border-top border-secondary border-opacity-25 p-3">
+    <div class="d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center overflow-hidden text-decoration-none">
+        <i class="bi bi-person-circle fs-4 text-white-50 me-2"></i>
+        <div class="text-truncate">
+          <div class="small fw-semibold">
+            <a href="{{ url_for('customer.profile') }}" class="text-white text-decoration-none d-block" style="cursor: pointer;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+              {{ session.get('name', 'User') }}
+            </a>
+          </div>
+          <div class="text-white-50" style="font-size: 0.7rem;">
+            {{ 'Admin' if session.get('role') == 'admin' else 'Customer' }}
+          </div>
+        </div>
+      </div>
+      <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-light border-0" title="Logout">
+        <i class="bi bi-box-arrow-right"></i>
+      </a>
+    </div>
+  </div>
 </div>
 
 <!-- ── Main Content Wrapper ─────────────────────────────────── -->
@@ -103,9 +121,6 @@
           <span class="badge bg-primary me-2">Customer</span>
         {% endif %}
         <span class="user-name">{{ session.get('name', 'User') }}</span>
-        <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-danger ms-3">
-          <i class="bi bi-box-arrow-left me-1"></i>Logout
-        </a>
       </div>
     </div>
   </nav>
@@ -161,43 +176,15 @@
 {% block auth_content %}{% endblock %}
 {% endif %}
 
-<!-- ── AI Analysis Loading Overlay ─────────────────────────────────────── -->
+<!-- Loading Spinner Overlay -->
 <div class="loading-overlay" id="loadingOverlay" style="display:none">
-  <div class="loading-card">
-
-    <!-- Pulsing ring + percentage -->
-    <div class="loading-ring-wrap">
-      <svg class="loading-ring" viewBox="0 0 120 120">
-        <circle class="ring-bg"   cx="60" cy="60" r="50" />
-        <circle class="ring-fill" cx="60" cy="60" r="50" id="loadingRingFill" />
-      </svg>
-      <div class="loading-pct" id="loadingPct">0%</div>
-    </div>
-
-    <!-- Step label -->
-    <p class="loading-title" id="loadingMsg">Initializing analysis...</p>
-    <p class="loading-step"  id="loadingStep">Please wait</p>
-
-    <!-- Progress bar -->
-    <div class="loading-bar-wrap">
-      <div class="loading-bar-track">
-        <div class="loading-bar-fill" id="loadingBarFill" style="width:0%"></div>
-      </div>
-      <span class="loading-bar-label" id="loadingBarPct">0%</span>
-    </div>
-
+  <div class="spinner-wrapper text-center">
+    <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status"></div>
+    <p class="mt-3 text-primary fw-semibold fs-5">
+      <span id="loadingMsg">Analyzing package...</span> <span id="loadingPct">0%</span>
+    </p>
   </div>
 </div>
-
-<!-- SVG gradient definition for loading ring -->
-<svg width="0" height="0" style="position:absolute">
-  <defs>
-    <linearGradient id="loadGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%"   stop-color="#2563eb" />
-      <stop offset="100%" stop-color="#0ea5e9" />
-    </linearGradient>
-  </defs>
-</svg>
 
 <!-- Bootstrap 5.3 JS Bundle -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>

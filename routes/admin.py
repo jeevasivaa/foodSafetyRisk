@@ -103,6 +103,47 @@ def users():
     )
 
 
+# ─── View User Profile ────────────────────────────────────────────────────────
+@admin.route("/user/<int:user_id>")
+@admin_required
+def user_profile(user_id):
+    """Admin view of a specific customer's profile."""
+    db = get_db()
+    user = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    if not user:
+        flash("User not found.", "danger")
+        return redirect(url_for("admin.users"))
+        
+    total_scans = db.execute(
+        """SELECT COUNT(*) as cnt FROM scans s
+           JOIN products p ON s.product_id = p.id
+           WHERE p.user_id = ?""",
+        (user_id,)
+    ).fetchone()["cnt"]
+
+    total_complaints = db.execute(
+        "SELECT COUNT(*) as cnt FROM complaints WHERE user_id = ?",
+        (user_id,)
+    ).fetchone()["cnt"]
+    
+    recent_scans = db.execute(
+        """SELECT s.id, p.product_name, s.status, s.scan_date
+           FROM scans s
+           JOIN products p ON s.product_id = p.id
+           WHERE p.user_id = ?
+           ORDER BY s.scan_date DESC LIMIT 5""",
+        (user_id,)
+    ).fetchall()
+
+    return render_template(
+        "admin_user_profile.html",
+        user=user,
+        total_scans=total_scans,
+        total_complaints=total_complaints,
+        recent_scans=recent_scans
+    )
+
+
 # ─── All Scans ────────────────────────────────────────────────────────────────
 @admin.route("/scans")
 @admin_required
