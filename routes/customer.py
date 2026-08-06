@@ -5,9 +5,11 @@ Handles all customer-facing routes:
   /dashboard, /upload, /scan/*, /complaint/*, /profile
 """
 import os
+import base64
+import uuid
 from flask import (
     Blueprint, render_template, request,
-    redirect, url_for, flash, session, current_app
+    redirect, url_for, flash, session, current_app, jsonify
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 from models.db import get_db
@@ -167,12 +169,15 @@ def scan(product_id):
     result = analyze_product(image_path)
     # ─────────────────────────────────────────────────────────────────────
 
-    # Store scan result in database
+    # Store scan result in database (Phase 2 extended columns)
     cursor = db.execute(
         """INSERT INTO scans
            (product_id, expiry_date, manufacturing_date, package_condition,
-            damage_percentage, barcode, quality_score, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            damage_percentage, barcode, quality_score, status,
+            barcode_number, barcode_type, batch_number, mrp, net_weight,
+            ocr_text, ocr_confidence, damage_type, damage_conf,
+            annotated_image, recommendation)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             product_id,
             result["expiry_date"],
@@ -182,12 +187,118 @@ def scan(product_id):
             result["barcode"],
             result["quality_score"],
             result["status"],
+            result.get("barcode_number", ""),
+            result.get("barcode_type", ""),
+            result.get("batch_number", "Not Detected"),
+            result.get("mrp", "Not Detected"),
+            result.get("net_weight", "Not Detected"),
+            result.get("ocr_text", ""),
+            result.get("ocr_confidence", "0"),
+            result.get("damage_type", "Package Appears Normal"),
+            result.get("damage_conf", "0"),
+            result.get("annotated_image", ""),
+            result.get("recommendation", ""),
         ),
     )
     db.commit()
     scan_id = cursor.lastrowid
 
     return redirect(url_for("customer.scan_result", scan_id=scan_id))
+
+
+# ── Camera Scan (AJAX) ─────────────────────────────────────────────────────────
+@customer.route("/scan/camera", methods=["POST"])
+@login_required
+def camera_scan():
+    """
+    Accept a base64-encoded JPEG captured by the browser camera.
+    Run the full AI pipeline and return JSON with the redirect URL.
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+        image_b64 = data.get("image", "")
+
+        if not image_b64:
+            return jsonify({"error": "No image data received."}), 400
+
+        # Strip data-URL prefix if present (e.g. "data:image/jpeg;base64,")
+        if "," in image_b64:
+            image_b64 = image_b64.split(",", 1)[1]
+
+        try:
+            image_bytes = base64.b64decode(image_b64)
+        except Exception:
+            return jsonify({"error": "Invalid base64 image data."}), 400
+
+        # Save to static/uploads/products/
+        filename   = f"{uuid.uuid4().hex}.jpg"
+        upload_dir = os.path.join(current_app.root_path, "static", "uploads", "products")
+        os.makedirs(upload_dir, exist_ok=True)
+        filepath   = os.path.join(upload_dir, filename)
+        with open(filepath, "wb") as f:
+            f.write(image_bytes)
+
+        # Metadata
+        product_name  = data.get("product_name", "Camera Capture").strip() or "Camera Capture"
+        brand         = data.get("brand", "Unknown").strip()  or "Unknown"
+        category      = data.get("category", "Other").strip() or "Other"
+        purchase_date = data.get("purchase_date", "")
+        if not purchase_date:
+            from datetime import date as _date
+            purchase_date = _date.today().isoformat()
+
+        db = get_db()
+        cursor = db.execute(
+            """INSERT INTO products (user_id, product_name, brand, category,
+                                    purchase_date, image)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (session["user_id"], product_name, brand, category,
+             purchase_date, f"products/{filename}"),
+        )
+        db.commit()
+        product_id = cursor.lastrowid
+
+        # Run AI pipeline
+        result = analyze_product(filepath)
+
+        cursor = db.execute(
+            """INSERT INTO scans
+               (product_id, expiry_date, manufacturing_date, package_condition,
+                damage_percentage, barcode, quality_score, status,
+                barcode_number, barcode_type, batch_number, mrp, net_weight,
+                ocr_text, ocr_confidence, damage_type, damage_conf,
+                annotated_image, recommendation)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                product_id,
+                result["expiry_date"],        result["manufacturing_date"],
+                result["package_condition"],  result["damage_percentage"],
+                result["barcode"],            result["quality_score"],
+                result["status"],
+                result.get("barcode_number", ""),
+                result.get("barcode_type", ""),
+                result.get("batch_number", "Not Detected"),
+                result.get("mrp", "Not Detected"),
+                result.get("net_weight", "Not Detected"),
+                result.get("ocr_text", ""),
+                result.get("ocr_confidence", "0"),
+                result.get("damage_type", "Package Appears Normal"),
+                result.get("damage_conf", "0"),
+                result.get("annotated_image", ""),
+                result.get("recommendation", ""),
+            ),
+        )
+        db.commit()
+        scan_id = cursor.lastrowid
+
+        return jsonify({
+            "success":      True,
+            "redirect_url": url_for("customer.scan_result", scan_id=scan_id),
+        })
+
+    except Exception as e:
+        print(f"[Camera Scan] Error: {e}")
+        return jsonify({"error": "Analysis failed. Please try again."}), 500
 
 
 # ─── Scan Result ──────────────────────────────────────────────────────────────

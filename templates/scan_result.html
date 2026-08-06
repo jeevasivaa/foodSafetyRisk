@@ -10,55 +10,90 @@
   <p class="content-subtitle">Package condition analysis for <strong>{{ scan['product_name'] }}</strong></p>
 </div>
 
+{# ── Expiry Alert Banner ─────────────────────────────────────────────────── #}
+{% set exp = scan['expiry_date'] %}
+{% if exp and exp != 'Not Detected' %}
+  {% set today = now_str() if now_str is defined else '' %}
+  {% if scan['status'] == 'Unsafe' and 'expired' in (scan['recommendation'] or '').lower() %}
+  <div class="alert alert-danger d-flex align-items-center gap-3 mb-4 border-0 shadow-sm" role="alert">
+    <i class="bi bi-calendar-x-fill fs-4"></i>
+    <div>
+      <strong>Expired Product!</strong> This product expired on <strong>{{ exp }}</strong>.
+      Do not consume. Raise a complaint if purchased recently.
+    </div>
+  </div>
+  {% elif scan['status'] == 'Warning' and exp != 'Not Detected' %}
+  <div class="alert alert-warning d-flex align-items-center gap-3 mb-4 border-0 shadow-sm" role="alert">
+    <i class="bi bi-exclamation-triangle-fill fs-4"></i>
+    <div><strong>Expiry Notice:</strong> Product expires on <strong>{{ exp }}</strong>. Consume promptly.</div>
+  </div>
+  {% endif %}
+{% endif %}
+
+{# ── Damage Alert ────────────────────────────────────────────────────────── #}
+{% if scan['damage_type'] and scan['damage_type'] != 'Package Appears Normal' %}
+<div class="alert alert-danger d-flex align-items-center gap-3 mb-4 border-0 shadow-sm" role="alert">
+  <i class="bi bi-shield-exclamation fs-4"></i>
+  <div>
+    <strong>Package Appears Damaged!</strong>
+    Detected: <strong>{{ scan['damage_type'] }}</strong>
+    {% if scan['damage_conf'] and scan['damage_conf'] != '0' %}
+      (Confidence: {{ scan['damage_conf'] }}%)
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
 <div class="row g-4">
-  <!-- ── Left: Product Image & Details ─────────────────────────── -->
+  <!-- ── Left: Images & Product Details ──────────────────────────── -->
   <div class="col-lg-4">
-    <!-- Product Image -->
-    <div class="card shadow-sm border-0 mb-4">
-      <div class="card-body p-0 overflow-hidden rounded">
+
+    <!-- Original Image -->
+    <div class="card shadow-sm border-0 mb-3">
+      <div class="card-header bg-transparent border-0 pt-3 px-3 pb-0">
+        <h6 class="fw-bold mb-0"><i class="bi bi-image me-2 text-primary"></i>Original Image</h6>
+      </div>
+      <div class="card-body p-2 overflow-hidden rounded">
         {% if scan['image'] %}
         <img src="{{ url_for('static', filename='uploads/' + scan['image']) }}"
              alt="{{ scan['product_name'] }}"
              class="img-fluid w-100 rounded"
-             style="max-height:300px;object-fit:cover" />
+             style="max-height:250px;object-fit:cover" />
         {% else %}
-        <div class="d-flex align-items-center justify-content-center bg-light rounded"
-             style="height:200px">
+        <div class="d-flex align-items-center justify-content-center bg-light rounded" style="height:150px">
           <i class="bi bi-image text-muted display-4"></i>
         </div>
         {% endif %}
       </div>
     </div>
 
-    <!-- Product Details -->
-    <div class="card shadow-sm border-0 mb-4">
-      <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
-        <h6 class="fw-bold mb-0">
-          <i class="bi bi-box-seam me-2 text-primary"></i>Product Details
-        </h6>
+    <!-- Annotated Image -->
+    {% if scan['annotated_image'] %}
+    <div class="card shadow-sm border-0 mb-3">
+      <div class="card-header bg-transparent border-0 pt-3 px-3 pb-0">
+        <h6 class="fw-bold mb-0"><i class="bi bi-bounding-box me-2 text-danger"></i>Damage Analysis</h6>
       </div>
-      <div class="card-body px-4 pb-4">
+      <div class="card-body p-2 overflow-hidden rounded">
+        <img src="{{ url_for('static', filename=scan['annotated_image']) }}"
+             alt="Annotated Damage"
+             class="img-fluid w-100 rounded"
+             style="max-height:250px;object-fit:cover" />
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Product Details -->
+    <div class="card shadow-sm border-0 mb-3">
+      <div class="card-header bg-transparent border-0 pt-3 px-3 pb-0">
+        <h6 class="fw-bold mb-0"><i class="bi bi-box-seam me-2 text-primary"></i>Product Details</h6>
+      </div>
+      <div class="card-body px-3 pb-3">
         <table class="table table-sm mb-0">
-          <tr>
-            <td class="text-muted fw-semibold" style="width:45%">Product</td>
-            <td class="fw-semibold">{{ scan['product_name'] }}</td>
-          </tr>
-          <tr>
-            <td class="text-muted fw-semibold">Brand</td>
-            <td>{{ scan['brand'] }}</td>
-          </tr>
-          <tr>
-            <td class="text-muted fw-semibold">Category</td>
-            <td>{{ scan['category'] }}</td>
-          </tr>
-          <tr>
-            <td class="text-muted fw-semibold">Purchased</td>
-            <td>{{ scan['purchase_date'] }}</td>
-          </tr>
-          <tr>
-            <td class="text-muted fw-semibold">Scanned On</td>
-            <td>{{ scan['scan_date'][:16] }}</td>
-          </tr>
+          <tr><td class="text-muted fw-semibold" style="width:45%">Product</td><td class="fw-semibold">{{ scan['product_name'] }}</td></tr>
+          <tr><td class="text-muted fw-semibold">Brand</td><td>{{ scan['brand'] }}</td></tr>
+          <tr><td class="text-muted fw-semibold">Category</td><td>{{ scan['category'] }}</td></tr>
+          <tr><td class="text-muted fw-semibold">Purchased</td><td>{{ scan['purchase_date'] }}</td></tr>
+          <tr><td class="text-muted fw-semibold">Scanned On</td><td>{{ scan['scan_date'][:16] }}</td></tr>
         </table>
       </div>
     </div>
@@ -66,8 +101,7 @@
     <!-- Action Buttons -->
     <div class="d-grid gap-2">
       {% if not complaint %}
-      <a href="{{ url_for('customer.raise_complaint', scan_id=scan['id']) }}"
-         class="btn btn-danger btn-lg">
+      <a href="{{ url_for('customer.raise_complaint', scan_id=scan['id']) }}" class="btn btn-danger btn-lg">
         <i class="bi bi-exclamation-triangle me-2"></i>Raise Complaint
       </a>
       {% else %}
@@ -81,9 +115,10 @@
     </div>
   </div>
 
-  <!-- ── Right: Analysis Results ───────────────────────────────── -->
+  <!-- ── Right: Analysis Results ─────────────────────────────────── -->
   <div class="col-lg-8">
-    <!-- Quality Score Hero Card -->
+
+    <!-- Quality Score Hero -->
     <div class="card shadow-sm border-0 mb-4 result-hero-card
       {% if scan['status'] == 'Safe' %}result-safe
       {% elif scan['status'] == 'Warning' %}result-warning
@@ -107,22 +142,21 @@
             {% endif %}
           </h3>
           <p class="mb-0 text-muted">
-            Package Condition:
-            <strong>{{ scan['package_condition'] }}</strong>
+            Package Condition: <strong>{{ scan['package_condition'] }}</strong>
           </p>
         </div>
       </div>
     </div>
 
-    <!-- Analysis Details -->
+    <!-- ── OCR + Package Data ─────────────────────────────────────── -->
     <div class="card shadow-sm border-0 mb-4">
       <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
-        <h5 class="fw-bold mb-0">
-          <i class="bi bi-robot me-2 text-primary"></i>AI Analysis Details
-        </h5>
+        <h5 class="fw-bold mb-0"><i class="bi bi-robot me-2 text-primary"></i>AI Analysis Details</h5>
       </div>
       <div class="card-body p-4">
         <div class="row g-3">
+
+          <!-- Expiry Date -->
           <div class="col-md-6">
             <div class="analysis-item">
               <div class="analysis-icon bg-primary-soft">
@@ -130,10 +164,12 @@
               </div>
               <div class="analysis-info">
                 <div class="analysis-label">Expiry Date</div>
-                <div class="analysis-value">{{ scan['expiry_date'] }}</div>
+                <div class="analysis-value">{{ scan['expiry_date'] or 'Not Detected' }}</div>
               </div>
             </div>
           </div>
+
+          <!-- Manufacturing Date -->
           <div class="col-md-6">
             <div class="analysis-item">
               <div class="analysis-icon bg-success-soft">
@@ -141,14 +177,73 @@
               </div>
               <div class="analysis-info">
                 <div class="analysis-label">Manufacturing Date</div>
-                <div class="analysis-value">{{ scan['manufacturing_date'] }}</div>
+                <div class="analysis-value">{{ scan['manufacturing_date'] or 'Not Detected' }}</div>
               </div>
             </div>
           </div>
+
+          <!-- Batch Number -->
           <div class="col-md-6">
             <div class="analysis-item">
               <div class="analysis-icon bg-info-soft">
-                <i class="bi bi-box text-info"></i>
+                <i class="bi bi-hash text-info"></i>
+              </div>
+              <div class="analysis-info">
+                <div class="analysis-label">Batch Number</div>
+                <div class="analysis-value">{{ scan['batch_number'] or 'Not Detected' }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Barcode -->
+          <div class="col-md-6">
+            <div class="analysis-item">
+              <div class="analysis-icon bg-purple-soft">
+                <i class="bi bi-upc-scan text-purple"></i>
+              </div>
+              <div class="analysis-info">
+                <div class="analysis-label">
+                  Barcode
+                  {% if scan['barcode_type'] %}
+                    <span class="badge bg-secondary ms-1" style="font-size:.6rem">{{ scan['barcode_type'] }}</span>
+                  {% endif %}
+                </div>
+                <div class="analysis-value">{{ scan['barcode_number'] or scan['barcode'] or 'Not Detected' }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- MRP -->
+          <div class="col-md-6">
+            <div class="analysis-item">
+              <div class="analysis-icon bg-warning-soft">
+                <i class="bi bi-currency-rupee text-warning"></i>
+              </div>
+              <div class="analysis-info">
+                <div class="analysis-label">MRP</div>
+                <div class="analysis-value">{{ scan['mrp'] or 'Not Detected' }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Net Weight -->
+          <div class="col-md-6">
+            <div class="analysis-item">
+              <div class="analysis-icon bg-success-soft">
+                <i class="bi bi-box text-success"></i>
+              </div>
+              <div class="analysis-info">
+                <div class="analysis-label">Net Weight</div>
+                <div class="analysis-value">{{ scan['net_weight'] or 'Not Detected' }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Package Condition -->
+          <div class="col-md-6">
+            <div class="analysis-item">
+              <div class="analysis-icon bg-info-soft">
+                <i class="bi bi-archive text-info"></i>
               </div>
               <div class="analysis-info">
                 <div class="analysis-label">Package Condition</div>
@@ -156,28 +251,48 @@
               </div>
             </div>
           </div>
+
+          <!-- Damage Type -->
           <div class="col-md-6">
             <div class="analysis-item">
               <div class="analysis-icon bg-warning-soft">
                 <i class="bi bi-exclamation-diamond text-warning"></i>
               </div>
               <div class="analysis-info">
-                <div class="analysis-label">Damage Percentage</div>
-                <div class="analysis-value">{{ scan['damage_percentage'] }}</div>
+                <div class="analysis-label">Damage Detection</div>
+                <div class="analysis-value">
+                  {{ scan['damage_type'] or 'Package Appears Normal' }}
+                  {% if scan['damage_conf'] and scan['damage_conf'] != '0' %}
+                    <small class="text-muted">({{ scan['damage_conf'] }}%)</small>
+                  {% endif %}
+                </div>
               </div>
             </div>
           </div>
+
+          <!-- OCR Confidence -->
           <div class="col-md-6">
             <div class="analysis-item">
-              <div class="analysis-icon bg-purple-soft">
-                <i class="bi bi-upc-scan text-purple"></i>
+              <div class="analysis-icon bg-primary-soft">
+                <i class="bi bi-eye text-primary"></i>
               </div>
               <div class="analysis-info">
-                <div class="analysis-label">Barcode</div>
-                <div class="analysis-value">{{ scan['barcode'] }}</div>
+                <div class="analysis-label">OCR Confidence</div>
+                <div class="analysis-value">
+                  {{ scan['ocr_confidence'] or '0' }}%
+                  <div class="progress mt-1" style="height:4px">
+                    <div class="progress-bar
+                      {% if (scan['ocr_confidence'] or '0')|float >= 80 %}bg-success
+                      {% elif (scan['ocr_confidence'] or '0')|float >= 50 %}bg-warning
+                      {% else %}bg-danger{% endif %}"
+                      style="width:{{ scan['ocr_confidence'] or '0' }}%"></div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
+
+          <!-- Quality Score -->
           <div class="col-md-6">
             <div class="analysis-item">
               <div class="analysis-icon bg-success-soft">
@@ -198,11 +313,34 @@
               </div>
             </div>
           </div>
+
+        </div><!-- /row -->
+
+        <!-- OCR Full Text (collapsible) -->
+        {% if scan['ocr_text'] %}
+        <div class="mt-4">
+          <div class="accordion" id="ocrAccordion">
+            <div class="accordion-item border-0 bg-light rounded">
+              <h2 class="accordion-header">
+                <button class="accordion-button collapsed bg-light rounded fw-semibold" type="button"
+                        data-bs-toggle="collapse" data-bs-target="#ocrText">
+                  <i class="bi bi-text-paragraph me-2 text-muted"></i>Full OCR Text
+                </button>
+              </h2>
+              <div id="ocrText" class="accordion-collapse collapse" data-bs-parent="#ocrAccordion">
+                <div class="accordion-body">
+                  <pre class="mb-0 small text-muted" style="white-space:pre-wrap;word-break:break-word">{{ scan['ocr_text'] }}</pre>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
+        {% endif %}
+
       </div>
     </div>
 
-    <!-- Recommendation Card -->
+    <!-- Recommendation -->
     <div class="card shadow-sm border-0
       {% if scan['status'] == 'Safe' %}border-start border-success border-4
       {% elif scan['status'] == 'Warning' %}border-start border-warning border-4
@@ -211,21 +349,31 @@
         <h6 class="fw-bold mb-2">
           <i class="bi bi-lightbulb-fill text-warning me-2"></i>Recommendation
         </h6>
-        {% if scan['status'] == 'Safe' %}
-          <p class="mb-0 text-success fw-semibold">
-            ✅ This product is safe to consume. Package is in good condition with no significant damage detected.
-          </p>
-        {% elif scan['status'] == 'Warning' %}
-          <p class="mb-0 text-warning fw-semibold">
-            ⚠️ Minor issues detected. Check the product carefully before consuming. Consider raising a complaint if concerned.
+        {% if scan['recommendation'] %}
+          <p class="mb-0 fw-semibold
+            {% if scan['status'] == 'Safe' %}text-success
+            {% elif scan['status'] == 'Warning' %}text-warning
+            {% else %}text-danger{% endif %}">
+            {{ scan['recommendation'] }}
           </p>
         {% else %}
-          <p class="mb-0 text-danger fw-semibold">
-            ❌ This product should NOT be consumed. Significant damage or expiry issues detected. Please raise a complaint immediately.
-          </p>
+          {% if scan['status'] == 'Safe' %}
+            <p class="mb-0 text-success fw-semibold">
+              ✅ This product is safe to consume. Package is in good condition with no significant damage detected.
+            </p>
+          {% elif scan['status'] == 'Warning' %}
+            <p class="mb-0 text-warning fw-semibold">
+              ⚠️ Minor issues detected. Check the product carefully before consuming. Consider raising a complaint if concerned.
+            </p>
+          {% else %}
+            <p class="mb-0 text-danger fw-semibold">
+              ❌ This product should NOT be consumed. Significant damage or expiry issues detected. Please raise a complaint immediately.
+            </p>
+          {% endif %}
         {% endif %}
       </div>
     </div>
-  </div>
-</div>
+
+  </div><!-- /col-lg-8 -->
+</div><!-- /row -->
 {% endblock %}

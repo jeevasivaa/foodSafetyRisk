@@ -2,154 +2,321 @@
 {% block title %}Upload Product{% endblock %}
 {% block page_title %}Upload Product{% endblock %}
 
+{% block extra_head %}
+<style>
+/* Camera preview */
+#cameraVideo, #capturedPreview {
+  width: 100%;
+  border-radius: 12px;
+  background: #000;
+  min-height: 220px;
+  object-fit: cover;
+}
+#cameraCanvas { display: none; }
+.camera-ui-area {
+  background: #f8fafc;
+  border-radius: 14px;
+  padding: 1.5rem;
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="content-header">
   <h2 class="content-title">
-    <i class="bi bi-cloud-upload me-2 text-primary"></i>Upload Product
+    <i class="bi bi-cloud-upload me-2 text-primary"></i>Scan Product
   </h2>
-  <p class="content-subtitle">Upload your food package image for AI-powered quality analysis</p>
+  <p class="content-subtitle">Upload an image or use your camera for AI-powered quality analysis</p>
 </div>
 
-<div class="row g-4">
-  <!-- ── Upload Form ─────────────────────────────────────────────── -->
-  <div class="col-lg-7">
-    <div class="card shadow-sm border-0">
-      <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
-        <h5 class="fw-bold mb-0">
-          <i class="bi bi-box-seam me-2 text-primary"></i>Product Details
-        </h5>
-      </div>
-      <div class="card-body p-4">
-        <form method="POST" action="{{ url_for('customer.upload') }}"
-              enctype="multipart/form-data" id="uploadForm" novalidate>
+<!-- ── Mode Tabs ──────────────────────────────────────────────────────────── -->
+<ul class="nav nav-tabs mb-4" id="scanModeTabs" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active fw-semibold" id="upload-tab" data-bs-toggle="tab"
+            data-bs-target="#uploadPane" type="button" role="tab">
+      <i class="bi bi-cloud-upload me-2"></i>Upload Image
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link fw-semibold" id="camera-tab" data-bs-toggle="tab"
+            data-bs-target="#cameraPane" type="button" role="tab">
+      <i class="bi bi-camera-video me-2"></i>Scan Using Camera
+    </button>
+  </li>
+</ul>
 
-          <div class="row g-3">
-            <div class="col-md-6">
-              <label for="product_name" class="form-label fw-semibold">Product Name <span class="text-danger">*</span></label>
-              <input type="text" class="form-control" id="product_name" name="product_name"
-                     placeholder="e.g. Biscuits Pack" required
-                     value="{{ form.get('product_name', '') }}" />
-            </div>
-            <div class="col-md-6">
-              <label for="brand" class="form-label fw-semibold">Brand <span class="text-danger">*</span></label>
-              <input type="text" class="form-control" id="brand" name="brand"
-                     placeholder="e.g. Britannia" required
-                     value="{{ form.get('brand', '') }}" />
-            </div>
-            <div class="col-md-6">
-              <label for="category" class="form-label fw-semibold">Category <span class="text-danger">*</span></label>
-              <select class="form-select" id="category" name="category" required>
-                <option value="">-- Select Category --</option>
-                {% set categories = ['Biscuits & Cookies', 'Chips & Snacks', 'Cereals & Oats',
-                                     'Dairy Products', 'Beverages', 'Noodles & Pasta',
-                                     'Canned Foods', 'Frozen Foods', 'Chocolates & Candy',
-                                     'Spices & Condiments', 'Health Foods', 'Other'] %}
-                {% for cat in categories %}
-                <option value="{{ cat }}"
-                  {% if form.get('category') == cat %}selected{% endif %}>{{ cat }}</option>
-                {% endfor %}
-              </select>
-            </div>
-            <div class="col-md-6">
-              <label for="purchase_date" class="form-label fw-semibold">Purchase Date <span class="text-danger">*</span></label>
-              <input type="date" class="form-control" id="purchase_date" name="purchase_date"
-                     required value="{{ form.get('purchase_date', '') }}" />
-            </div>
+<div class="tab-content" id="scanModeContent">
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       TAB 1 — Upload Image
+  ═══════════════════════════════════════════════════════════════════════════ -->
+  <div class="tab-pane fade show active" id="uploadPane" role="tabpanel">
+    <div class="row g-4">
+      <!-- Upload Form -->
+      <div class="col-lg-7">
+        <div class="card shadow-sm border-0">
+          <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+            <h5 class="fw-bold mb-0">
+              <i class="bi bi-box-seam me-2 text-primary"></i>Product Details
+            </h5>
           </div>
+          <div class="card-body p-4">
+            <form method="POST" action="{{ url_for('customer.upload') }}"
+                  enctype="multipart/form-data" id="uploadForm" novalidate>
 
-          <!-- Product Image Upload -->
-          <div class="mt-4">
-            <label class="form-label fw-semibold">
-              Product Image <span class="text-danger">*</span>
-              <small class="text-muted fw-normal ms-2">JPG, JPEG, PNG — max 16 MB</small>
-            </label>
-            <div class="upload-dropzone" id="productDropzone"
-                 onclick="document.getElementById('product_image').click()">
-              <div class="upload-dropzone-inner" id="productDropzoneInner">
-                <i class="bi bi-image display-5 text-primary mb-3"></i>
-                <p class="fw-semibold mb-1">Click to upload product image</p>
-                <p class="text-muted small">or drag and drop here</p>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label for="product_name" class="form-label fw-semibold">Product Name <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control" id="product_name" name="product_name"
+                         placeholder="e.g. Biscuits Pack" required
+                         value="{{ form.get('product_name', '') }}" />
+                </div>
+                <div class="col-md-6">
+                  <label for="brand" class="form-label fw-semibold">Brand <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control" id="brand" name="brand"
+                         placeholder="e.g. Britannia" required
+                         value="{{ form.get('brand', '') }}" />
+                </div>
+                <div class="col-md-6">
+                  <label for="category" class="form-label fw-semibold">Category <span class="text-danger">*</span></label>
+                  <select class="form-select" id="category" name="category" required>
+                    <option value="">-- Select Category --</option>
+                    {% set categories = ['Biscuits & Cookies', 'Chips & Snacks', 'Cereals & Oats',
+                                         'Dairy Products', 'Beverages', 'Noodles & Pasta',
+                                         'Canned Foods', 'Frozen Foods', 'Chocolates & Candy',
+                                         'Spices & Condiments', 'Health Foods', 'Other'] %}
+                    {% for cat in categories %}
+                    <option value="{{ cat }}"
+                      {% if form.get('category') == cat %}selected{% endif %}>{{ cat }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label for="purchase_date" class="form-label fw-semibold">Purchase Date <span class="text-danger">*</span></label>
+                  <input type="date" class="form-control" id="purchase_date" name="purchase_date"
+                         required value="{{ form.get('purchase_date', '') }}" />
+                </div>
+              </div>
+
+              <!-- Product Image Upload -->
+              <div class="mt-4">
+                <label class="form-label fw-semibold">
+                  Product Image <span class="text-danger">*</span>
+                  <small class="text-muted fw-normal ms-2">JPG, JPEG, PNG — max 16 MB</small>
+                </label>
+                <div class="upload-dropzone" id="productDropzone"
+                     onclick="document.getElementById('product_image').click()">
+                  <div class="upload-dropzone-inner" id="productDropzoneInner">
+                    <i class="bi bi-image display-5 text-primary mb-3"></i>
+                    <p class="fw-semibold mb-1">Click to upload product image</p>
+                    <p class="text-muted small">or drag and drop here</p>
+                  </div>
+                </div>
+                <input type="file" class="d-none" id="product_image" name="product_image"
+                       accept=".jpg,.jpeg,.png" required
+                       onchange="previewImage(this, 'productDropzoneInner', 'productPreview')" />
+                <img id="productPreview" class="img-preview d-none mt-3" alt="Product preview" />
+              </div>
+
+              <!-- Bill Image Upload (Optional) -->
+              <div class="mt-4">
+                <label class="form-label fw-semibold">
+                  Purchase Bill <small class="text-muted fw-normal ms-2">Optional — JPG, JPEG, PNG</small>
+                </label>
+                <div class="upload-dropzone upload-dropzone-secondary"
+                     onclick="document.getElementById('bill_image').click()">
+                  <div class="upload-dropzone-inner" id="billDropzoneInner">
+                    <i class="bi bi-receipt display-6 text-secondary mb-2"></i>
+                    <p class="text-muted mb-0">Click to upload bill image</p>
+                  </div>
+                </div>
+                <input type="file" class="d-none" id="bill_image" name="bill_image"
+                       accept=".jpg,.jpeg,.png"
+                       onchange="previewImage(this, 'billDropzoneInner', 'billPreview')" />
+                <img id="billPreview" class="img-preview d-none mt-3" alt="Bill preview" />
+              </div>
+
+              <div class="d-flex gap-3 mt-4">
+                <button type="submit" class="btn btn-primary btn-lg px-5" id="submitUploadBtn"
+                        onclick="showLoading('Uploading and analyzing package...')">
+                  <i class="bi bi-cpu me-2"></i>Upload &amp; Analyze
+                </button>
+                <a href="{{ url_for('customer.dashboard') }}" class="btn btn-outline-secondary btn-lg">
+                  Cancel
+                </a>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Side Info Panel -->
+      <div class="col-lg-5">
+        <div class="card shadow-sm border-0 mb-4">
+          <div class="card-body p-4">
+            <h6 class="fw-bold mb-3">
+              <i class="bi bi-info-circle-fill text-info me-2"></i>What the AI Analyzes
+            </h6>
+            <ul class="list-unstyled mb-0">
+              <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Expiry &amp; manufacturing dates</li>
+              <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Barcode / QR code detection</li>
+              <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Batch number, MRP, net weight</li>
+              <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Package damage detection</li>
+              <li class="mb-0"><i class="bi bi-check-circle-fill text-success me-2"></i>Overall quality score (0–100)</li>
+            </ul>
+          </div>
+        </div>
+        <div class="card shadow-sm border-0 mb-4">
+          <div class="card-body p-4">
+            <h6 class="fw-bold mb-3">
+              <i class="bi bi-lightbulb-fill text-warning me-2"></i>Tips for Best Results
+            </h6>
+            <ul class="list-unstyled mb-0 text-muted small">
+              <li class="mb-2"><i class="bi bi-camera me-2"></i>Use a well-lit area for photography</li>
+              <li class="mb-2"><i class="bi bi-arrows-fullscreen me-2"></i>Ensure the full package is visible</li>
+              <li class="mb-2"><i class="bi bi-type me-2"></i>Keep text/barcode in focus and unobstructed</li>
+              <li class="mb-0"><i class="bi bi-file-image me-2"></i>Use JPG or PNG format</li>
+            </ul>
+          </div>
+        </div>
+        <div class="card border-0 bg-primary text-white shadow-sm">
+          <div class="card-body p-4">
+            <h6 class="fw-bold mb-2"><i class="bi bi-shield-check me-2"></i>Phase 2 — Real AI Active</h6>
+            <p class="small mb-0 opacity-75">
+              EasyOCR, pyzbar, and OpenCV computer vision are now active.
+              Results are based on real image analysis.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /uploadPane -->
+
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       TAB 2 — Camera Scan
+  ═══════════════════════════════════════════════════════════════════════════ -->
+  <div class="tab-pane fade" id="cameraPane" role="tabpanel">
+    <div class="row g-4">
+
+      <!-- Camera UI -->
+      <div class="col-lg-7">
+        <div class="card shadow-sm border-0">
+          <div class="card-header bg-transparent border-0 pt-4 px-4 pb-0">
+            <h5 class="fw-bold mb-0">
+              <i class="bi bi-camera-video me-2 text-primary"></i>Live Camera Scan
+            </h5>
+          </div>
+          <div class="card-body p-4">
+
+            <!-- Error alert -->
+            <div id="cameraError" class="alert alert-danger d-none mb-3" role="alert"></div>
+            <!-- Status text -->
+            <p id="cameraStatus" class="text-muted small mb-3">Click "Start Camera" to begin.</p>
+
+            <!-- Video preview -->
+            <div style="position:relative">
+              <video id="cameraVideo" class="d-none" autoplay playsinline muted></video>
+              <canvas id="cameraCanvas"></canvas>
+              <img id="capturedPreview" class="d-none" alt="Captured frame" />
+            </div>
+
+            <!-- Camera controls -->
+            <div class="d-flex flex-wrap gap-2 mt-3">
+              <button id="startCameraBtn" class="btn btn-primary">
+                <i class="bi bi-camera-video me-2"></i>Start Camera
+              </button>
+              <button id="captureBtn" class="btn btn-success d-none">
+                <i class="bi bi-camera me-2"></i>Capture
+              </button>
+              <button id="retakeBtn" class="btn btn-outline-secondary d-none">
+                <i class="bi bi-arrow-counterclockwise me-2"></i>Retake
+              </button>
+              <button id="analyzeBtn" class="btn btn-primary d-none">
+                <i class="bi bi-cpu me-2"></i>Analyze
+              </button>
+              <button id="switchCameraBtn" class="btn btn-outline-secondary d-none" title="Switch camera">
+                <i class="bi bi-arrow-repeat me-2"></i>Switch Camera
+              </button>
+            </div>
+
+            <!-- Optional metadata for camera scan -->
+            <hr class="my-4" />
+            <h6 class="fw-semibold mb-3">Product Details <small class="text-muted fw-normal">(Optional)</small></h6>
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label for="cam_product_name" class="form-label fw-semibold">Product Name</label>
+                <input type="text" class="form-control" id="cam_product_name"
+                       placeholder="e.g. Biscuits Pack" />
+              </div>
+              <div class="col-md-6">
+                <label for="cam_brand" class="form-label fw-semibold">Brand</label>
+                <input type="text" class="form-control" id="cam_brand"
+                       placeholder="e.g. Britannia" />
+              </div>
+              <div class="col-md-6">
+                <label for="cam_category" class="form-label fw-semibold">Category</label>
+                <select class="form-select" id="cam_category">
+                  <option value="Other">Other</option>
+                  {% set categories = ['Biscuits & Cookies', 'Chips & Snacks', 'Cereals & Oats',
+                                       'Dairy Products', 'Beverages', 'Noodles & Pasta',
+                                       'Canned Foods', 'Frozen Foods', 'Chocolates & Candy',
+                                       'Spices & Condiments', 'Health Foods', 'Other'] %}
+                  {% for cat in categories %}
+                  <option value="{{ cat }}">{{ cat }}</option>
+                  {% endfor %}
+                </select>
               </div>
             </div>
-            <input type="file" class="d-none" id="product_image" name="product_image"
-                   accept=".jpg,.jpeg,.png" required
-                   onchange="previewImage(this, 'productDropzoneInner', 'productPreview')" />
-            <!-- Image preview -->
-            <img id="productPreview" class="img-preview d-none mt-3" alt="Product preview" />
+
           </div>
+        </div>
+      </div>
 
-          <!-- Bill Image Upload (Optional) -->
-          <div class="mt-4">
-            <label class="form-label fw-semibold">
-              Purchase Bill <small class="text-muted fw-normal ms-2">Optional — JPG, JPEG, PNG</small>
-            </label>
-            <div class="upload-dropzone upload-dropzone-secondary"
-                 onclick="document.getElementById('bill_image').click()">
-              <div class="upload-dropzone-inner" id="billDropzoneInner">
-                <i class="bi bi-receipt display-6 text-secondary mb-2"></i>
-                <p class="text-muted mb-0">Click to upload bill image</p>
-              </div>
-            </div>
-            <input type="file" class="d-none" id="bill_image" name="bill_image"
-                   accept=".jpg,.jpeg,.png"
-                   onchange="previewImage(this, 'billDropzoneInner', 'billPreview')" />
-            <img id="billPreview" class="img-preview d-none mt-3" alt="Bill preview" />
+      <!-- Camera Tips -->
+      <div class="col-lg-5">
+        <div class="card shadow-sm border-0 mb-4">
+          <div class="card-body p-4">
+            <h6 class="fw-bold mb-3">
+              <i class="bi bi-info-circle-fill text-info me-2"></i>Camera Scanning Tips
+            </h6>
+            <ul class="list-unstyled mb-0 text-muted small">
+              <li class="mb-2"><i class="bi bi-sun me-2 text-warning"></i>Ensure good lighting — avoid shadows</li>
+              <li class="mb-2"><i class="bi bi-arrows-angle-contract me-2 text-primary"></i>Hold the camera 20–30 cm from the package</li>
+              <li class="mb-2"><i class="bi bi-type me-2"></i>Point at the label / barcode for best OCR</li>
+              <li class="mb-2"><i class="bi bi-hand-index me-2"></i>Hold steady before capturing</li>
+              <li class="mb-0"><i class="bi bi-arrow-repeat me-2"></i>Use "Switch Camera" to toggle front/rear</li>
+            </ul>
           </div>
-
-          <div class="d-flex gap-3 mt-4">
-            <button type="submit" class="btn btn-primary btn-lg px-5" id="submitUploadBtn"
-                    onclick="showLoading('Uploading and analyzing package...')">
-              <i class="bi bi-cpu me-2"></i>Upload & Analyze
-            </button>
-            <a href="{{ url_for('customer.dashboard') }}" class="btn btn-outline-secondary btn-lg">
-              Cancel
-            </a>
+        </div>
+        <div class="card shadow-sm border-0 mb-4">
+          <div class="card-body p-4">
+            <h6 class="fw-bold mb-3">
+              <i class="bi bi-phone me-2 text-success"></i>Device Compatibility
+            </h6>
+            <ul class="list-unstyled mb-0 text-muted small">
+              <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Chrome (Desktop &amp; Android)</li>
+              <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Edge (Desktop)</li>
+              <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Firefox (Desktop)</li>
+              <li class="mb-2"><i class="bi bi-check-circle text-success me-2"></i>Safari (iOS 14.3+)</li>
+              <li class="mb-0"><i class="bi bi-exclamation-triangle text-warning me-2"></i>Requires HTTPS or localhost</li>
+            </ul>
           </div>
-        </form>
+        </div>
       </div>
-    </div>
-  </div>
 
-  <!-- ── Side Info Panel ─────────────────────────────────────────── -->
-  <div class="col-lg-5">
-    <div class="card shadow-sm border-0 mb-4">
-      <div class="card-body p-4">
-        <h6 class="fw-bold mb-3">
-          <i class="bi bi-info-circle-fill text-info me-2"></i>What the AI Analyzes
-        </h6>
-        <ul class="list-unstyled mb-0">
-          <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Expiry &amp; manufacturing dates</li>
-          <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Package damage percentage</li>
-          <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Barcode detection</li>
-          <li class="mb-2"><i class="bi bi-check-circle-fill text-success me-2"></i>Package condition (Good/Fair/Poor)</li>
-          <li class="mb-0"><i class="bi bi-check-circle-fill text-success me-2"></i>Overall quality score (0–100)</li>
-        </ul>
-      </div>
     </div>
+  </div><!-- /cameraPane -->
 
-    <div class="card shadow-sm border-0 mb-4">
-      <div class="card-body p-4">
-        <h6 class="fw-bold mb-3">
-          <i class="bi bi-lightbulb-fill text-warning me-2"></i>Tips for Best Results
-        </h6>
-        <ul class="list-unstyled mb-0 text-muted small">
-          <li class="mb-2"><i class="bi bi-camera me-2"></i>Use a well-lit area for photography</li>
-          <li class="mb-2"><i class="bi bi-arrows-fullscreen me-2"></i>Ensure the full package is visible</li>
-          <li class="mb-2"><i class="bi bi-type me-2"></i>Keep text/barcode in focus</li>
-          <li class="mb-0"><i class="bi bi-file-image me-2"></i>Use JPG or PNG format</li>
-        </ul>
-      </div>
-    </div>
+</div><!-- /tab-content -->
+{% endblock %}
 
-    <div class="card border-0 bg-primary text-white shadow-sm">
-      <div class="card-body p-4">
-        <h6 class="fw-bold mb-2"><i class="bi bi-shield-check me-2"></i>AI Placeholder Mode</h6>
-        <p class="small mb-0 opacity-75">
-          Phase 1 uses placeholder AI. Real EasyOCR + YOLO analysis will be integrated in Phase 2.
-          All data structures are already Phase 2-ready.
-        </p>
-      </div>
-    </div>
-  </div>
-</div>
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/camera.js') }}"></script>
 {% endblock %}

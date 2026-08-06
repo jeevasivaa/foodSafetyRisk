@@ -80,3 +80,28 @@ def init_db(app):
             print(f"[DB] Default admin created -> {config.ADMIN_EMAIL} / {config.ADMIN_PASS}")
         else:
             print("[DB] Database initialized.")
+
+        # ── Phase 2 migration: add new columns to scans table ────────────
+        # SQLite does not support ALTER TABLE ADD COLUMN IF NOT EXISTS,
+        # so we try each column individually and ignore "duplicate column" errors.
+        _phase2_columns = [
+            "barcode_number  TEXT",
+            "barcode_type    TEXT",
+            "batch_number    TEXT",
+            "mrp             TEXT",
+            "net_weight      TEXT",
+            "ocr_text        TEXT",
+            "ocr_confidence  TEXT",
+            "damage_type     TEXT",
+            "damage_conf     TEXT",
+            "annotated_image TEXT",
+            "recommendation  TEXT",
+        ]
+        for col_def in _phase2_columns:
+            try:
+                conn.execute(f"ALTER TABLE scans ADD COLUMN {col_def}")
+                conn.commit()
+            except sqlite3.OperationalError:
+                pass   # column already exists — safe to ignore
+        print("[DB] Phase 2 schema migration complete.")
+
