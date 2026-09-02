@@ -97,8 +97,11 @@ def upload():
             errors.append("Category is required.")
         if not purchase_date:
             errors.append("Purchase date is required.")
+        manual_barcode = request.form.get("manual_barcode", "").strip()
+        
         if not product_image or product_image.filename == "":
-            errors.append("Product image is required.")
+            if not manual_barcode:
+                errors.append("Product image or manual barcode is required.")
         elif not allowed_file(product_image.filename):
             errors.append("Only JPG, JPEG, PNG files are allowed.")
 
@@ -107,11 +110,13 @@ def upload():
                 flash(e, "danger")
             return render_template("upload.html", form=request.form)
 
-        # Save product image (required)
-        img_filename = save_upload(product_image, "products")
-        if not img_filename:
-            flash("Failed to save product image.", "danger")
-            return render_template("upload.html", form=request.form)
+        # Save product image (optional if barcode is present)
+        img_filename = ""
+        if product_image and product_image.filename:
+            img_filename = save_upload(product_image, "products")
+            if not img_filename:
+                flash("Failed to save product image.", "danger")
+                return render_template("upload.html", form=request.form)
 
         # Save bill image (optional)
         bill_filename = None
@@ -120,7 +125,7 @@ def upload():
                 flash("Bill image: only JPG, JPEG, PNG allowed.", "danger")
                 return render_template("upload.html", form=request.form)
             bill_filename = save_upload(bill_image, "bills")
-
+            
         db = get_db()
         cursor = db.execute(
             """INSERT INTO products (user_id, product_name, brand, category,
@@ -133,9 +138,12 @@ def upload():
         )
         db.commit()
         product_id = cursor.lastrowid
+        
+        manufacturing_date = request.form.get("manufacturing_date", "").strip()
+        expiry_date = request.form.get("expiry_date", "").strip()
 
         flash("Product uploaded successfully! Running analysis...", "success")
-        return redirect(url_for("customer.scan", product_id=product_id))
+        return redirect(url_for("customer.scan", product_id=product_id, manual_barcode=manual_barcode, mfg_date=manufacturing_date, exp_date=expiry_date))
 
     return render_template("upload.html", form={})
 
@@ -160,13 +168,20 @@ def scan(product_id):
         flash("Product not found.", "danger")
         return redirect(url_for("customer.scan_history"))
 
-    # Build full image path for AI module
-    image_path = os.path.join(
-        current_app.root_path, "static", "uploads", product["image"]
-    )
+    # Build full image path for AI module, or empty if no image provided
+    if product["image"]:
+        image_path = os.path.join(
+            current_app.root_path, "static", "uploads", product["image"]
+        )
+    else:
+        image_path = ""
+    
+    manual_barcode = request.args.get("manual_barcode", "").strip()
+    mfg_date = request.args.get("mfg_date", "").strip()
+    exp_date = request.args.get("exp_date", "").strip()
 
     # ── AI Analysis (Phase 3 Unified Workflow) ───────────────────────
-    result = perform_unified_inspection(image_path)
+    result = perform_unified_inspection(image_path, manual_barcode=manual_barcode, mfg_date=mfg_date, exp_date=exp_date)
     # ─────────────────────────────────────────────────────────────────────
     
     ai = result.get("ai_analysis", {})
@@ -286,9 +301,13 @@ def camera_scan():
         )
         db.commit()
         product_id = cursor.lastrowid
+        
+        manual_barcode = data.get("manual_barcode", "").strip()
+        mfg_date = data.get("mfg_date", "").strip()
+        exp_date = data.get("exp_date", "").strip()
 
         # Run AI pipeline (Phase 3 Unified Workflow)
-        result = perform_unified_inspection(filepath)
+        result = perform_unified_inspection(filepath, manual_barcode=manual_barcode, mfg_date=mfg_date, exp_date=exp_date)
         
         ai = result.get("ai_analysis", {})
         barcode_data = result.get("barcode", {})
@@ -528,6 +547,17 @@ def raise_complaint(scan_id):
             (complaint_id, scan_id, user_id, description, comp_filename, bill_filename),
         )
         db.commit()
+        
+        # Fetch user details for email
+        user_info = db.execute("SELECT email, name FROM users WHERE id = ?", (user_id,)).fetchone()
+        
+        # Send emails
+        from services.mail_service import send_complaint_acknowledgement, send_admin_notification
+        
+        complaint_title = f"{scan_data['product_name']} ({complaint_id})"
+        if user_info:
+            send_complaint_acknowledgement(user_info["email"], user_info["name"], complaint_title)
+            send_admin_notification(complaint_title, user_info["name"])
 
         flash(f"Complaint {complaint_id} raised successfully!", "success")
         return redirect(url_for("customer.my_complaints"))
@@ -678,3 +708,33 @@ def api_product_barcode(barcode):
         
     result = get_product_by_barcode(barcode)
     return jsonify(result)
+
+@customer.route("/api/extract_barcode", methods=["POST"])
+@login_required
+def api_extract_barcode():
+    """Extract barcode from an uploaded image file."""
+    if "image" not in request.files:
+        return jsonify({"success": False, "message": "No image provided"}), 400
+        
+    file = request.files["image"]
+    if file.filename == "":
+        return jsonify({"success": False, "message": "No selected file"}), 400
+        
+    if file and allowed_file(file.filename):
+        import tempfile
+        from services.barcode_service import detect_barcode
+        
+        fd, path = tempfile.mkstemp(suffix=".jpg")
+        try:
+            with os.fdopen(fd, 'wb') as f:
+                f.write(file.read())
+            
+            barcode_data = detect_barcode(path)
+            if barcode_data["detected"]:
+                return jsonify({"success": True, "barcode": barcode_data["barcode"]})
+            else:
+                return jsonify({"success": False, "message": "No barcode detected in image"})
+        finally:
+            os.remove(path)
+            
+    return jsonify({"success": False, "message": "Invalid file type"}), 400

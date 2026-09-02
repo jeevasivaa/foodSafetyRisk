@@ -153,16 +153,22 @@ async function submitCapture() {
   const productName = document.getElementById("cam_product_name")?.value || "Camera Capture";
   const brand       = document.getElementById("cam_brand")?.value        || "Unknown";
   const category    = document.getElementById("cam_category")?.value     || "Other";
+  const manualBarcode = document.getElementById("cam_manual_barcode")?.value || "";
+  const mfgDate       = document.getElementById("cam_manufacturing_date")?.value || "";
+  const expDate       = document.getElementById("cam_expiry_date")?.value || "";
 
   try {
     const response = await fetch("/scan/camera", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        image:        _capturedBlob,
-        product_name: productName,
-        brand:        brand,
-        category:     category,
+        image:          _capturedBlob,
+        product_name:   productName,
+        brand:          brand,
+        category:       category,
+        manual_barcode: manualBarcode,
+        mfg_date:       mfgDate,
+        exp_date:       expDate,
       }),
     });
 

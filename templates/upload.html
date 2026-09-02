@@ -102,6 +102,27 @@
                   <input type="date" class="form-control" id="purchase_date" name="purchase_date"
                          required value="{{ form.get('purchase_date', '') }}" />
                 </div>
+                <div class="col-md-6">
+                  <label for="manufacturing_date" class="form-label fw-semibold">Packaged Date <small class="text-muted fw-normal ms-1">(Optional)</small></label>
+                  <input type="date" class="form-control" id="manufacturing_date" name="manufacturing_date"
+                         value="{{ form.get('manufacturing_date', '') }}" />
+                </div>
+                <div class="col-md-6">
+                  <label for="expiry_date" class="form-label fw-semibold">Expiry Date <small class="text-muted fw-normal ms-1">(Optional)</small></label>
+                  <input type="date" class="form-control" id="expiry_date" name="expiry_date"
+                         value="{{ form.get('expiry_date', '') }}" />
+                </div>
+                <div class="col-md-12">
+                  <label for="manual_barcode" class="form-label fw-semibold">Manual Barcode <small class="text-muted fw-normal ms-1">(Optional)</small></label>
+                  <div class="input-group">
+                    <input type="text" class="form-control" id="manual_barcode" name="manual_barcode"
+                           placeholder="Enter barcode manually if detection fails"
+                           value="{{ form.get('manual_barcode', '') }}" />
+                    <button class="btn btn-outline-primary" type="button" id="autoFillBtn">
+                      <i class="bi bi-magic me-1"></i>Auto-fill
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <!-- Product Image Upload -->
@@ -119,7 +140,7 @@
                   </div>
                 </div>
                 <input type="file" class="d-none" id="product_image" name="product_image"
-                       accept=".jpg,.jpeg,.png" required
+                       accept=".jpg,.jpeg,.png"
                        onchange="previewImage(this, 'productDropzoneInner', 'productPreview')" />
                 <img id="productPreview" class="img-preview d-none mt-3" alt="Product preview" />
               </div>
@@ -272,6 +293,24 @@
                   {% endfor %}
                 </select>
               </div>
+              <div class="col-md-6">
+                <label for="cam_manufacturing_date" class="form-label fw-semibold">Packaged Date <small class="text-muted fw-normal ms-1">(Optional)</small></label>
+                <input type="date" class="form-control" id="cam_manufacturing_date" />
+              </div>
+              <div class="col-md-6">
+                <label for="cam_expiry_date" class="form-label fw-semibold">Expiry Date <small class="text-muted fw-normal ms-1">(Optional)</small></label>
+                <input type="date" class="form-control" id="cam_expiry_date" />
+              </div>
+              <div class="col-md-6">
+                <label for="cam_manual_barcode" class="form-label fw-semibold">Manual Barcode <small class="text-muted fw-normal ms-1">(Optional)</small></label>
+                <div class="input-group">
+                  <input type="text" class="form-control" id="cam_manual_barcode"
+                         placeholder="Enter barcode manually" />
+                  <button class="btn btn-outline-primary" type="button" id="camAutoFillBtn">
+                    <i class="bi bi-magic me-1"></i>Auto-fill
+                  </button>
+                </div>
+              </div>
             </div>
 
           </div>
@@ -325,13 +364,14 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
   const category = document.getElementById('category').value;
   const date     = document.getElementById('purchase_date').value;
   const imageFile = document.getElementById('product_image').files.length;
+  const manualBarcode = document.getElementById('manual_barcode').value.trim();
 
   let errors = [];
   if (!name)      errors.push('Product Name is required.');
   if (!brand)     errors.push('Brand is required.');
   if (!category)  errors.push('Please select a Category.');
   if (!date)      errors.push('Purchase Date is required.');
-  if (!imageFile) errors.push('Please upload a product image before scanning.');
+  if (!imageFile && !manualBarcode) errors.push('Please upload a product image or enter a manual barcode.');
 
   if (errors.length > 0) {
     e.preventDefault();
@@ -343,9 +383,12 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
         el.addEventListener('input', () => el.classList.remove('is-invalid'), { once: true });
       }
     });
-    // Highlight dropzone if no image
-    if (!imageFile) {
+    // Highlight dropzone if no image and no barcode
+    if (!imageFile && !manualBarcode) {
       document.getElementById('productDropzone').style.border = '2px solid #dc3545';
+      const mb = document.getElementById('manual_barcode');
+      mb.classList.add('is-invalid');
+      mb.addEventListener('input', () => mb.classList.remove('is-invalid'), { once: true });
     }
     // Show a toast with all errors
     showToast('⚠️ ' + errors[0], 'danger');
@@ -354,6 +397,135 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
 
   // All valid — show loading overlay
   showLoading('Analyzing package...');
+});
+
+// Auto-fill logic
+document.getElementById('autoFillBtn').addEventListener('click', async function() {
+  const barcode = document.getElementById('manual_barcode').value.trim();
+  if (!barcode) {
+    showToast('⚠️ Please enter a barcode first.', 'warning');
+    return;
+  }
+  
+  const btn = this;
+  const originalHtml = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+  btn.disabled = true;
+
+  try {
+    const response = await fetch(`/api/product/barcode/${barcode}`);
+    const data = await response.json();
+    
+    if (data.success && data.product) {
+      if (data.product.name) document.getElementById('product_name').value = data.product.name;
+      if (data.product.brand) document.getElementById('brand').value = data.product.brand;
+      
+      if (data.product.category) {
+        const catSelect = document.getElementById('category');
+        const searchCat = data.product.category.toLowerCase();
+        let found = false;
+        for (let i = 0; i < catSelect.options.length; i++) {
+          const optValue = catSelect.options[i].value.toLowerCase();
+          // Simple partial match logic
+          if (optValue && (searchCat.includes(optValue) || optValue.includes(searchCat.split(',')[0]))) {
+            catSelect.selectedIndex = i;
+            found = true;
+            break;
+          }
+        }
+        if (!found) catSelect.value = 'Other';
+      }
+      
+      showToast('✅ Product details fetched successfully!', 'success');
+    } else {
+      showToast('⚠️ Product not found in database.', 'warning');
+    }
+  } catch (err) {
+    console.error(err);
+    showToast('⚠️ Error fetching product data.', 'danger');
+  } finally {
+    btn.innerHTML = originalHtml;
+    btn.disabled = false;
+  }
+});
+
+// Auto-extract barcode from image
+document.getElementById('product_image').addEventListener('change', async function() {
+  if (this.files.length === 0) return;
+  
+  const file = this.files[0];
+  const formData = new FormData();
+  formData.append('image', file);
+  
+  showToast('🔍 Extracting barcode from image...', 'info');
+  
+  try {
+    const response = await fetch('/api/extract_barcode', {
+      method: 'POST',
+      body: formData
+    });
+    
+    const data = await response.json();
+    if (data.success && data.barcode) {
+      document.getElementById('manual_barcode').value = data.barcode;
+      showToast(`✅ Barcode detected: ${data.barcode}`, 'success');
+      // Automatically trigger fetch
+      document.getElementById('autoFillBtn').click();
+    } else {
+      console.log('No barcode detected in the uploaded image.');
+    }
+  } catch (err) {
+    console.error('Error extracting barcode:', err);
+  }
+});
+
+// Auto-fill logic for Camera Tab
+document.getElementById('camAutoFillBtn').addEventListener('click', async function() {
+  const barcode = document.getElementById('cam_manual_barcode').value.trim();
+  if (!barcode) {
+    showToast('⚠️ Please enter a barcode first.', 'warning');
+    return;
+  }
+  
+  const btn = this;
+  const originalHtml = btn.innerHTML;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+  btn.disabled = true;
+
+  try {
+    const response = await fetch(`/api/product/barcode/${barcode}`);
+    const data = await response.json();
+    
+    if (data.success && data.product) {
+      if (data.product.name) document.getElementById('cam_product_name').value = data.product.name;
+      if (data.product.brand) document.getElementById('cam_brand').value = data.product.brand;
+      
+      if (data.product.category) {
+        const catSelect = document.getElementById('cam_category');
+        const searchCat = data.product.category.toLowerCase();
+        let found = false;
+        for (let i = 0; i < catSelect.options.length; i++) {
+          const optValue = catSelect.options[i].value.toLowerCase();
+          if (optValue && (searchCat.includes(optValue) || optValue.includes(searchCat.split(',')[0]))) {
+            catSelect.selectedIndex = i;
+            found = true;
+            break;
+          }
+        }
+        if (!found) catSelect.value = 'Other';
+      }
+      
+      showToast('✅ Product details fetched successfully!', 'success');
+    } else {
+      showToast('⚠️ Product not found in database.', 'warning');
+    }
+  } catch (err) {
+    console.error(err);
+    showToast('⚠️ Error fetching product data.', 'danger');
+  } finally {
+    btn.innerHTML = originalHtml;
+    btn.disabled = false;
+  }
 });
 </script>
 {% endblock %}

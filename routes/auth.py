@@ -72,6 +72,10 @@ def register():
             (name, email, phone, generate_password_hash(password)),
         )
         db.commit()
+        
+        # Send Welcome Email
+        from services.mail_service import send_welcome_email
+        send_welcome_email(email, name)
 
         flash("Registration successful! Please log in.", "success")
         return redirect(url_for("auth.login"))

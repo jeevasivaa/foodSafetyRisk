@@ -24,6 +24,18 @@ def create_app() -> Flask:
     app.secret_key          = config.SECRET_KEY
     app.config["UPLOAD_FOLDER"]        = config.UPLOAD_FOLDER
     app.config["MAX_CONTENT_LENGTH"]   = config.MAX_CONTENT_LENGTH
+    
+    # Mail Config
+    app.config['MAIL_SERVER'] = config.MAIL_SERVER
+    app.config['MAIL_PORT'] = config.MAIL_PORT
+    app.config['MAIL_USE_TLS'] = config.MAIL_USE_TLS
+    app.config['MAIL_USERNAME'] = config.MAIL_USERNAME
+    app.config['MAIL_PASSWORD'] = config.MAIL_PASSWORD
+    app.config['MAIL_DEFAULT_SENDER'] = config.MAIL_DEFAULT_SENDER
+
+    # Initialize Mail
+    from services.mail_service import mail
+    mail.init_app(app)
 
     # ── Register Blueprints ───────────────────────────────────────────────────
     app.register_blueprint(auth)

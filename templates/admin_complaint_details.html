@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block title %}Complaint {{ complaint['complaint_id'] }}{% endblock %}
-{% block page_title %}Complaint Details{% endblock %}
+{% block page_title %}Complaint Details (Admin){% endblock %}
 
 {% block content %}
 <div class="content-header">
@@ -14,10 +14,40 @@
       </p>
     </div>
     <div class="d-flex gap-2">
+      <!-- PDF Button -->
       <button id="downloadPdfBtn" class="btn btn-outline-primary">
-        <i class="bi bi-file-earmark-pdf me-2"></i>Download PDF
+        <i class="bi bi-file-earmark-pdf me-1"></i>PDF
       </button>
-      <a href="{{ url_for('customer.my_complaints') }}" class="btn btn-outline-secondary" id="backBtn">
+
+      <!-- Admin Action Buttons -->
+      {% if complaint['status'] == 'Pending' %}
+      <form method="POST" action="{{ url_for('admin.approve_complaint', complaint_id=complaint['id']) }}" class="d-inline">
+        <button type="submit" class="btn btn-success">
+          <i class="bi bi-check-lg me-1"></i>Approve
+        </button>
+      </form>
+      <form method="POST" action="{{ url_for('admin.reject_complaint', complaint_id=complaint['id']) }}" class="d-inline">
+        <button type="submit" class="btn btn-warning" onclick="return confirm('Reject this complaint?')">
+          <i class="bi bi-x-lg me-1"></i>Reject
+        </button>
+      </form>
+      {% endif %}
+      
+      {% if complaint['status'] == 'Approved' %}
+      <form method="POST" action="{{ url_for('admin.resolve_complaint', complaint_id=complaint['id']) }}" class="d-inline">
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-check2-all me-1"></i>Mark Resolved
+        </button>
+      </form>
+      {% endif %}
+      
+      <form method="POST" action="{{ url_for('admin.delete_complaint', complaint_id=complaint['id']) }}" class="d-inline">
+        <button type="submit" class="btn btn-outline-danger" onclick="return confirm('Permanently delete this complaint?')">
+          <i class="bi bi-trash me-1"></i>Delete
+        </button>
+      </form>
+      
+      <a href="{{ url_for('admin.complaints') }}" class="btn btn-outline-secondary ms-2">
         <i class="bi bi-arrow-left me-2"></i>Back
       </a>
     </div>
@@ -41,16 +71,16 @@
         {% else %}x-circle-fill{% endif %}
         fs-4"></i>
       <div>
-        <strong>Complaint Status: {{ complaint['status'] }}</strong>
+        <strong>Current Status: {{ complaint['status'] }}</strong>
         <div class="small mt-1">
           {% if complaint['status'] == 'Pending' %}
-            Your complaint is under review by our admin team.
+            This complaint is awaiting your review.
           {% elif complaint['status'] == 'Approved' %}
-            Your complaint has been approved and is being processed.
+            This complaint is approved and currently active.
           {% elif complaint['status'] == 'Resolved' %}
-            Your complaint has been resolved successfully.
+            This complaint has been fully resolved.
           {% else %}
-            Your complaint has been reviewed and rejected.
+            This complaint was rejected.
           {% endif %}
         </div>
       </div>
@@ -153,6 +183,23 @@
 
   <!-- ── Right: Images & Meta ────────────────────────────────────── -->
   <div class="col-lg-4">
+    <!-- Customer Info -->
+    <div class="card shadow-sm border-0 mb-4">
+      <div class="card-header bg-transparent border-0 pt-3 px-4 pb-0">
+        <h6 class="fw-bold mb-0">Customer Profile</h6>
+      </div>
+      <div class="card-body p-4">
+        <div class="mb-2">
+          <div class="text-muted small">Name</div>
+          <div class="fw-semibold">{{ complaint['customer_name'] }}</div>
+        </div>
+        <div>
+          <div class="text-muted small">Email</div>
+          <div><a href="mailto:{{ complaint['customer_email'] }}">{{ complaint['customer_email'] }}</a></div>
+        </div>
+      </div>
+    </div>
+
     <!-- Product Image -->
     {% if complaint['product_image'] %}
     <div class="card shadow-sm border-0 mb-4">
@@ -232,12 +279,9 @@
   document.getElementById('downloadPdfBtn').addEventListener('click', function () {
     const element = document.querySelector('.page-content');
     
-    // Temporarily hide the buttons to prevent them from showing up in the PDF
-    const downloadBtn = document.getElementById('downloadPdfBtn');
-    const backBtn = document.getElementById('backBtn');
-    
-    if (downloadBtn) downloadBtn.style.display = 'none';
-    if (backBtn) backBtn.style.display = 'none';
+    // Temporarily hide the buttons header to prevent them from showing up in the PDF
+    const actionsContainer = document.querySelector('.d-flex.gap-2');
+    if (actionsContainer) actionsContainer.style.display = 'none';
 
     const opt = {
       margin:       0.5,
@@ -249,8 +293,7 @@
 
     html2pdf().set(opt).from(element).save().then(() => {
       // Restore buttons after generation
-      if (downloadBtn) downloadBtn.style.display = 'inline-block';
-      if (backBtn) backBtn.style.display = 'inline-block';
+      if (actionsContainer) actionsContainer.style.display = 'flex';
     });
   });
 </script>

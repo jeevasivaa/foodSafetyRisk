@@ -234,6 +234,56 @@ def complaints():
         current_status=status,
     )
 
+# ─── Complaint Details ────────────────────────────────────────────────────────
+@admin.route("/complaint/<int:complaint_pk>")
+@admin_required
+def complaint_details(complaint_pk):
+    """View full details of a single complaint."""
+    db = get_db()
+
+    complaint = db.execute(
+        """SELECT c.*, p.product_name, p.brand, p.category,
+                  p.purchase_date, p.image as product_image,
+                  u.name as customer_name, u.email as customer_email,
+                  s.quality_score, s.status as scan_status,
+                  s.package_condition, s.expiry_date, s.manufacturing_date
+           FROM complaints c
+           JOIN scans s ON c.scan_id = s.id
+           JOIN products p ON s.product_id = p.id
+           JOIN users u ON c.user_id = u.id
+           WHERE c.id = ?""",
+        (complaint_pk,)
+    ).fetchone()
+
+    if not complaint:
+        flash("Complaint not found.", "danger")
+        return redirect(url_for("admin.complaints"))
+
+    return render_template("admin_complaint_details.html", complaint=complaint)
+
+def _send_status_update_email(db, complaint_id_pk, new_status):
+    """Helper to fetch complaint details and send an email update."""
+    complaint = db.execute(
+        """SELECT c.complaint_id, u.name, u.email, p.product_name 
+           FROM complaints c
+           JOIN users u ON c.user_id = u.id
+           JOIN scans s ON c.scan_id = s.id
+           JOIN products p ON s.product_id = p.id
+           WHERE c.id = ?""",
+        (complaint_id_pk,)
+    ).fetchone()
+    
+    if complaint:
+        from services.mail_service import send_complaint_status_update
+        title = f"{complaint['product_name']} ({complaint['complaint_id']})"
+        send_complaint_status_update(
+            complaint['email'], 
+            complaint['name'], 
+            title, 
+            new_status, 
+            None # Admin response text not implemented in UI yet
+        )
+
 
 # ─── Approve Complaint ────────────────────────────────────────────────────────
 @admin.route("/complaint/<int:complaint_id>/approve", methods=["POST"])
@@ -245,6 +295,7 @@ def approve_complaint(complaint_id):
         (complaint_id,)
     )
     db.commit()
+    _send_status_update_email(db, complaint_id, 'Approved')
     flash("Complaint approved.", "success")
     return redirect(url_for("admin.complaints"))
 
@@ -259,6 +310,7 @@ def reject_complaint(complaint_id):
         (complaint_id,)
     )
     db.commit()
+    _send_status_update_email(db, complaint_id, 'Rejected')
     flash("Complaint rejected.", "warning")
     return redirect(url_for("admin.complaints"))
 
@@ -273,6 +325,7 @@ def resolve_complaint(complaint_id):
         (complaint_id,)
     )
     db.commit()
+    _send_status_update_email(db, complaint_id, 'Resolved')
     flash("Complaint marked as resolved.", "success")
     return redirect(url_for("admin.complaints"))
 
