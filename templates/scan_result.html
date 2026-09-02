@@ -98,6 +98,30 @@
       </div>
     </div>
 
+    <!-- Open Food Facts Data -->
+    {% if scan['off_data'] %}
+    <div class="card shadow-sm border-0 mb-3 border-start border-success border-4">
+      <div class="card-header bg-transparent border-0 pt-3 px-3 pb-0">
+        <h6 class="fw-bold mb-0 text-success"><i class="bi bi-globe-americas me-2"></i>Open Food Facts</h6>
+      </div>
+      <div class="card-body px-3 pb-3">
+        <table class="table table-sm mb-0" style="font-size: 0.9rem;">
+          <tr><td class="text-muted fw-semibold" style="width:45%">Detected Name</td><td class="fw-bold">{{ scan['off_data']['product_name'] }}</td></tr>
+          <tr><td class="text-muted fw-semibold">Brand</td><td>{{ scan['off_data']['brand'] }}</td></tr>
+          <tr><td class="text-muted fw-semibold">Quantity</td><td>{{ scan['off_data']['quantity'] }}</td></tr>
+          {% if scan['off_data']['allergens'] %}
+          <tr><td class="text-danger fw-semibold">Allergens</td><td class="text-danger fw-semibold">{{ scan['off_data']['allergens'] }}</td></tr>
+          {% endif %}
+        </table>
+        {% if scan['product_name'].lower() not in scan['off_data']['product_name'].lower() and scan['off_data']['product_name'].lower() not in scan['product_name'].lower() %}
+        <div class="alert alert-warning mt-3 mb-0 py-2 px-3 small border-0">
+          <i class="bi bi-exclamation-triangle me-1"></i><strong>Mismatch:</strong> Uploaded name does not match barcode registry.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
     <!-- Action Buttons -->
     <div class="d-grid gap-2">
       {% if not complaint %}
@@ -351,25 +375,11 @@
           <i class="bi bi-card-text me-2"></i>Summary of Findings
         </h6>
         <p class="mb-4 text-muted" style="font-size: 0.95rem;">
-          We scanned the packaging for <strong>{{ scan['product_name'] }}</strong>.
-          {% if scan['ocr_text'] %}
-            The AI successfully extracted text including 
-            {% if scan['expiry_date'] and scan['expiry_date'] != 'Not Detected' %}expiry dates,{% endif %}
-            {% if scan['batch_number'] and scan['batch_number'] != 'Not Detected' %}batch numbers,{% endif %}
-            and other label information.
+          {% if scan['summary'] %}
+            {{ scan['summary'] }}
           {% else %}
-            No clear text could be read from the label.
-          {% endif %}
-          
-          {% if scan['barcode_number'] %}
-            A {{ scan['barcode_type'] or 'barcode' }} was also found.
-          {% endif %}
-
-          The package condition is evaluated as <strong>{{ scan['package_condition']|lower }}</strong>
-          {% if scan['damage_type'] and scan['damage_type'] != 'Package Appears Normal' %}
-            due to suspected {{ scan['damage_type']|lower }}.
-          {% else %}
-            with no visible physical defects.
+            We scanned the packaging for <strong>{{ scan['product_name'] }}</strong>.
+            The package condition is evaluated as <strong>{{ scan['package_condition']|lower }}</strong>.
           {% endif %}
         </p>
 

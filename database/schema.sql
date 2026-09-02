@@ -44,8 +44,48 @@ CREATE TABLE IF NOT EXISTS scans (
     barcode              TEXT,
     quality_score        TEXT,
     status               TEXT,   -- 'Safe' | 'Warning' | 'Unsafe'
+    summary              TEXT,
     scan_date            TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
     FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+-- -------------------------------------------------------
+-- Cached Products table: Open Food Facts local cache
+-- -------------------------------------------------------
+CREATE TABLE IF NOT EXISTS cached_products (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    barcode       TEXT    NOT NULL UNIQUE,
+    product_name  TEXT,
+    brand         TEXT,
+    category      TEXT,
+    quantity      TEXT,
+    ingredients   TEXT,
+    allergens     TEXT,
+    nutrition_json TEXT,
+    image_url     TEXT,
+    source        TEXT,
+    created_at    TEXT    NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+
+-- -------------------------------------------------------
+-- AI Analysis table: Gemini visual package inspection
+-- -------------------------------------------------------
+CREATE TABLE IF NOT EXISTS ai_analysis (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    scan_id              INTEGER NOT NULL,
+    expiry_date          TEXT,
+    manufacturing_date   TEXT,
+    batch_number         TEXT,
+    mrp                  TEXT,
+    package_condition    TEXT,
+    visible_defects      TEXT,
+    condition_score      TEXT,
+    risk_level           TEXT,
+    recommendation       TEXT,
+    confidence           TEXT,
+    raw_response_json    TEXT,
+    created_at           TEXT    NOT NULL DEFAULT (datetime('now', 'localtime')),
+    FOREIGN KEY (scan_id) REFERENCES scans(id) ON DELETE CASCADE
 );
 
 -- -------------------------------------------------------

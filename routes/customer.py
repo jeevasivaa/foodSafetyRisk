@@ -13,7 +13,7 @@ from flask import (
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 from models.db import get_db
-from ai.analyzer import analyze_product
+from services.inspection_service import perform_unified_inspection
 from utils.helpers import (
     login_required, allowed_file, save_upload,
     paginate, generate_complaint_id
@@ -165,43 +165,72 @@ def scan(product_id):
         current_app.root_path, "static", "uploads", product["image"]
     )
 
-    # ── AI Analysis (placeholder — swap in Phase 2) ───────────────────────
-    result = analyze_product(image_path)
+    # ── AI Analysis (Phase 3 Unified Workflow) ───────────────────────
+    result = perform_unified_inspection(image_path)
     # ─────────────────────────────────────────────────────────────────────
+    
+    ai = result.get("ai_analysis", {})
+    barcode_data = result.get("barcode", {})
 
     # Store scan result in database (Phase 2 extended columns)
     cursor = db.execute(
         """INSERT INTO scans
            (product_id, expiry_date, manufacturing_date, package_condition,
-            damage_percentage, barcode, quality_score, status,
+            damage_percentage, barcode, quality_score, status, summary,
             barcode_number, barcode_type, batch_number, mrp, net_weight,
             ocr_text, ocr_confidence, damage_type, damage_conf,
-            annotated_image, recommendation)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            annotated_image, recommendation, scan_type)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             product_id,
-            result["expiry_date"],
-            result["manufacturing_date"],
-            result["package_condition"],
-            result["damage_percentage"],
-            result["barcode"],
-            result["quality_score"],
-            result["status"],
-            result.get("barcode_number", ""),
-            result.get("barcode_type", ""),
-            result.get("batch_number", "Not Detected"),
-            result.get("mrp", "Not Detected"),
-            result.get("net_weight", "Not Detected"),
-            result.get("ocr_text", ""),
-            result.get("ocr_confidence", "0"),
-            result.get("damage_type", "Package Appears Normal"),
-            result.get("damage_conf", "0"),
-            result.get("annotated_image", ""),
-            result.get("recommendation", ""),
+            ai.get("expiry_date", "Not Detected"),
+            ai.get("manufacturing_date", "Not Detected"),
+            ai.get("package_condition", "Fair"),
+            ai.get("damage_percentage", "0%"),
+            barcode_data.get("number", "Not Detected"),
+            ai.get("quality_score", "50"),
+            ai.get("status", "Warning"),
+            ai.get("summary", ""),
+            barcode_data.get("number", "Not Detected"),
+            barcode_data.get("type", ""),
+            ai.get("batch_number", "Not Detected"),
+            ai.get("mrp", "Not Detected"),
+            ai.get("net_weight", "Not Detected"),
+            ai.get("ocr_text", ""),
+            ai.get("ocr_confidence", "0"),
+            ai.get("damage_type", "Package Appears Normal"),
+            ai.get("damage_conf", "0"),
+            ai.get("annotated_image", ""),
+            ai.get("recommendation", ""),
+            "product_scan"
         ),
     )
-    db.commit()
     scan_id = cursor.lastrowid
+    
+    # Store AI analysis specifics in the new Phase 3 table
+    import json
+    db.execute(
+        """INSERT INTO ai_analysis
+           (scan_id, expiry_date, manufacturing_date, batch_number, mrp,
+            package_condition, visible_defects, condition_score, risk_level,
+            recommendation, raw_response_json)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (
+            scan_id,
+            ai.get("expiry_date", "Not Detected"),
+            ai.get("manufacturing_date", "Not Detected"),
+            ai.get("batch_number", "Not Detected"),
+            ai.get("mrp", "Not Detected"),
+            ai.get("package_condition", "Fair"),
+            ai.get("damage_type", "Package Appears Normal"),
+            ai.get("quality_score", "50"),
+            ai.get("status", "Warning"),
+            ai.get("recommendation", ""),
+            json.dumps(ai)
+        )
+    )
+    
+    db.commit()
 
     return redirect(url_for("customer.scan_result", scan_id=scan_id))
 
@@ -258,38 +287,69 @@ def camera_scan():
         db.commit()
         product_id = cursor.lastrowid
 
-        # Run AI pipeline
-        result = analyze_product(filepath)
+        # Run AI pipeline (Phase 3 Unified Workflow)
+        result = perform_unified_inspection(filepath)
+        
+        ai = result.get("ai_analysis", {})
+        barcode_data = result.get("barcode", {})
 
         cursor = db.execute(
             """INSERT INTO scans
                (product_id, expiry_date, manufacturing_date, package_condition,
-                damage_percentage, barcode, quality_score, status,
+                damage_percentage, barcode, quality_score, status, summary,
                 barcode_number, barcode_type, batch_number, mrp, net_weight,
                 ocr_text, ocr_confidence, damage_type, damage_conf,
-                annotated_image, recommendation)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                annotated_image, recommendation, scan_type)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 product_id,
-                result["expiry_date"],        result["manufacturing_date"],
-                result["package_condition"],  result["damage_percentage"],
-                result["barcode"],            result["quality_score"],
-                result["status"],
-                result.get("barcode_number", ""),
-                result.get("barcode_type", ""),
-                result.get("batch_number", "Not Detected"),
-                result.get("mrp", "Not Detected"),
-                result.get("net_weight", "Not Detected"),
-                result.get("ocr_text", ""),
-                result.get("ocr_confidence", "0"),
-                result.get("damage_type", "Package Appears Normal"),
-                result.get("damage_conf", "0"),
-                result.get("annotated_image", ""),
-                result.get("recommendation", ""),
+                ai.get("expiry_date", "Not Detected"),
+                ai.get("manufacturing_date", "Not Detected"),
+                ai.get("package_condition", "Fair"),
+                ai.get("damage_percentage", "0%"),
+                barcode_data.get("number", "Not Detected"),
+                ai.get("quality_score", "50"),
+                ai.get("status", "Warning"),
+                ai.get("summary", ""),
+                barcode_data.get("number", "Not Detected"),
+                barcode_data.get("type", ""),
+                ai.get("batch_number", "Not Detected"),
+                ai.get("mrp", "Not Detected"),
+                ai.get("net_weight", "Not Detected"),
+                ai.get("ocr_text", ""),
+                ai.get("ocr_confidence", "0"),
+                ai.get("damage_type", "Package Appears Normal"),
+                ai.get("damage_conf", "0"),
+                ai.get("annotated_image", ""),
+                ai.get("recommendation", ""),
+                "camera_scan"
             ),
         )
-        db.commit()
         scan_id = cursor.lastrowid
+        
+        # Store AI analysis specifics in the new Phase 3 table
+        import json
+        db.execute(
+            """INSERT INTO ai_analysis
+               (scan_id, expiry_date, manufacturing_date, batch_number, mrp,
+                package_condition, visible_defects, condition_score, risk_level,
+                recommendation, raw_response_json)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                scan_id,
+                ai.get("expiry_date", "Not Detected"),
+                ai.get("manufacturing_date", "Not Detected"),
+                ai.get("batch_number", "Not Detected"),
+                ai.get("mrp", "Not Detected"),
+                ai.get("package_condition", "Fair"),
+                ai.get("damage_type", "Package Appears Normal"),
+                ai.get("quality_score", "50"),
+                ai.get("status", "Warning"),
+                ai.get("recommendation", ""),
+                json.dumps(ai)
+            )
+        )
+        db.commit()
 
         return jsonify({
             "success":      True,
@@ -321,6 +381,21 @@ def scan_result(scan_id):
     if not scan_data:
         flash("Scan result not found.", "danger")
         return redirect(url_for("customer.scan_history"))
+        
+    scan_dict = dict(scan_data)
+    
+    # Fetch Open Food Facts data if available
+    if scan_dict.get("barcode") and scan_dict["barcode"] != "Not Detected":
+        off_data = db.execute("SELECT * FROM cached_products WHERE barcode = ?", (scan_dict["barcode"],)).fetchone()
+        if off_data:
+            scan_dict["off_data"] = dict(off_data)
+            # Try to parse nutrition JSON
+            try:
+                import json
+                if scan_dict["off_data"].get("nutrition_json"):
+                    scan_dict["off_data"]["nutrition"] = json.loads(scan_dict["off_data"]["nutrition_json"])
+            except:
+                pass
 
     # Check if complaint already raised for this scan
     complaint = db.execute(
@@ -330,7 +405,7 @@ def scan_result(scan_id):
 
     return render_template(
         "scan_result.html",
-        scan=scan_data,
+        scan=scan_dict,
         complaint=complaint,
     )
 
@@ -585,3 +660,21 @@ def profile():
     # Refresh user from DB for display
     user = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
     return render_template("profile.html", user=user)
+
+
+# ─── Barcode API ──────────────────────────────────────────────────────────────
+@customer.route("/api/product/barcode/<barcode>", methods=["GET"])
+@login_required
+def api_product_barcode(barcode):
+    """
+    Look up product information by barcode.
+    Checks the local SQLite cache first; if not found, queries Open Food Facts.
+    """
+    from services.product_service import get_product_by_barcode
+    
+    barcode = barcode.strip()
+    if not barcode:
+        return jsonify({"success": False, "message": "Barcode is required"}), 400
+        
+    result = get_product_by_barcode(barcode)
+    return jsonify(result)
