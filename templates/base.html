@@ -80,6 +80,13 @@
     </a>
 
     {% endif %}
+
+    <!-- Shared Navigation -->
+    <div class="nav-section-label mt-3">Public</div>
+    <a href="{{ url_for('community.feed') }}"
+       class="nav-link {% if 'community' in request.endpoint %}active{% endif %}">
+      <i class="bi bi-people-fill"></i> Community
+    </a>
   </nav>
 
   <!-- Sidebar Footer: Profile & Logout -->

@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row mb-4 align-items-center">
+    <div class="col-md-8">
+        <h2 class="fw-bold"><i class="bi bi-people-fill text-primary me-2"></i>Community Feed</h2>
+        <p class="text-muted mb-0">Join the discussion on food safety, reviews, and warnings.</p>
+    </div>
+    <div class="col-md-4 text-md-end mt-3 mt-md-0">
+        <a href="{{ url_for('community.create_post') }}" class="btn btn-primary rounded-pill fw-semibold shadow-sm">
+            <i class="bi bi-plus-lg me-1"></i> New Post
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Main Feed -->
+    <div class="col-lg-8">
+        <!-- Sort Toggle -->
+        <div class="d-flex align-items-center mb-4 bg-light rounded-pill p-1 shadow-sm border" style="width: fit-content;">
+            <a href="{{ url_for('community.feed', sort='hot') }}" class="btn btn-sm rounded-pill px-4 {% if sort != 'new' %}btn-dark fw-bold{% else %}text-muted{% endif %}">
+                <i class="bi bi-fire me-1"></i> Hot
+            </a>
+            <a href="{{ url_for('community.feed', sort='new') }}" class="btn btn-sm rounded-pill px-4 {% if sort == 'new' %}btn-dark fw-bold{% else %}text-muted{% endif %}">
+                <i class="bi bi-stars me-1"></i> New
+            </a>
+        </div>
+
+        {% if posts %}
+            {% for post in posts %}
+            <div class="card shadow-sm border-0 mb-3 rounded-4 overflow-hidden community-post-card">
+                <div class="card-body p-0 d-flex">
+                    
+                    <!-- Vote Column -->
+                    <div class="bg-light p-3 d-flex flex-column align-items-center border-end" style="width: 60px;">
+                        <button class="btn btn-link text-decoration-none p-0 vote-btn {% if user_votes.get(post['id']) == 1 %}text-danger{% else %}text-secondary{% endif %}" 
+                                onclick="vote('post', {{ post['id'] }}, 1, this)">
+                            <i class="bi bi-arrow-up-circle-fill fs-5"></i>
+                        </button>
+                        <span class="fw-bold my-1 score-val" data-id="post-{{ post['id'] }}">{{ post['score'] }}</span>
+                        <button class="btn btn-link text-decoration-none p-0 vote-btn {% if user_votes.get(post['id']) == -1 %}text-primary{% else %}text-secondary{% endif %}"
+                                onclick="vote('post', {{ post['id'] }}, -1, this)">
+                            <i class="bi bi-arrow-down-circle-fill fs-5"></i>
+                        </button>
+                    </div>
+
+                    <!-- Content Column -->
+                    <div class="p-4 w-100 position-relative">
+                        <a href="{{ url_for('community.view_post', post_id=post['id']) }}" class="stretched-link text-decoration-none text-dark"></a>
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <div class="d-flex align-items-center">
+                                {% if post['category'] %}
+                                <span class="badge bg-secondary me-2 rounded-pill">{{ post['category'] }}</span>
+                                {% endif %}
+                                <small class="text-muted fw-semibold me-2"><i class="bi bi-person-circle me-1"></i>{{ post['author_name'] }}</small>
+                                <small class="text-muted"><i class="bi bi-clock me-1"></i>{{ post['created_at'][:16] }}</small>
+                            </div>
+                            
+                            {% if 'user_id' in session and (session['user_id'] == post['user_id'] or session.get('role') == 'admin') %}
+                            <form action="{{ url_for('community.delete_post', post_id=post['id']) }}" method="POST" class="m-0 position-relative" style="z-index: 10;" onsubmit="return confirm('Are you sure you want to delete this post?');">
+                                <button type="submit" class="btn btn-sm btn-link text-danger p-0 text-decoration-none"><i class="bi bi-trash"></i></button>
+                            </form>
+                            {% endif %}
+                        </div>
+                        <h5 class="fw-bold mb-2">{{ post['title'] }}</h5>
+                        <p class="text-secondary mb-3" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">
+                            {{ post['content'] }}
+                        </p>
+                        
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="text-muted small fw-semibold">
+                                <i class="bi bi-chat-text-fill me-1"></i> {{ post['comment_count'] }} Comments
+                            </div>
+                            {% if post['scan_id'] %}
+                            <div class="text-info small fw-bold">
+                                <i class="bi bi-upc-scan me-1"></i> Attached Scan
+                            </div>
+                            {% endif %}
+                            {% if post['image'] %}
+                            <div class="text-primary small fw-bold">
+                                <i class="bi bi-image me-1"></i> Image
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="text-center p-5 bg-white rounded-4 shadow-sm border-0">
+                <i class="bi bi-wind text-muted fs-1 mb-3"></i>
+                <h5 class="fw-bold text-muted">It's quiet in here...</h5>
+                <p class="text-secondary mb-4">Be the first to start a discussion!</p>
+                <a href="{{ url_for('community.create_post') }}" class="btn btn-primary rounded-pill">Create Post</a>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4 d-none d-lg-block">
+        <div class="card shadow-sm border-0 rounded-4">
+            <div class="card-body p-4">
+                <h6 class="fw-bold mb-3"><i class="bi bi-info-circle-fill text-primary me-2"></i>About Community</h6>
+                <p class="text-muted small mb-0">
+                    Welcome to the Food Quality AI community! Share your suspicious scans, discuss health limits, ask questions, and help keep everyone safe from counterfeit products.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .community-post-card {
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .community-post-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+    }
+    .vote-btn {
+        z-index: 10;
+        position: relative;
+    }
+    .vote-btn:hover {
+        opacity: 0.8;
+    }
+</style>
+
+<script>
+function vote(targetType, targetId, voteValue, btnElem) {
+    fetch("{{ url_for('community.vote') }}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            target_type: targetType,
+            target_id: targetId,
+            vote_value: voteValue
+        })
+    })
+    .then(res => {
+        if(res.status === 401) {
+            window.location.href = "{{ url_for('auth.login') }}";
+            throw new Error("Unauthorized");
+        }
+        return res.json();
+    })
+    .then(data => {
+        if (data.success) {
+            // Update score visually
+            document.querySelector(`.score-val[data-id="${targetType}-${targetId}"]`).innerText = data.new_score;
+            
+            // Reset colors in this group
+            const container = btnElem.parentElement;
+            const upBtn = container.querySelector('.bi-arrow-up-circle-fill').parentElement;
+            const downBtn = container.querySelector('.bi-arrow-down-circle-fill').parentElement;
+            
+            upBtn.classList.remove('text-danger');
+            upBtn.classList.add('text-secondary');
+            downBtn.classList.remove('text-primary');
+            downBtn.classList.add('text-secondary');
+            
+            // Apply new color if active
+            if(data.new_score > parseInt(btnElem.nextElementSibling ? btnElem.nextElementSibling.innerText : btnElem.previousElementSibling.innerText) || voteValue === 1) {
+                // Not perfectly determining visual state without server state, 
+                // A full page reload is normally avoided, but for visual snap we'll reload 
+                // OR we just toggle the color. Let's do a simple reload for perfect state syncing for now,
+                // or just leave it. For a robust reddit clone, we'd sync the user_vote.
+                location.reload(); 
+            } else {
+                location.reload();
+            }
+        }
+    })
+    .catch(err => console.log(err));
+}
+</script>
+{% endblock %}

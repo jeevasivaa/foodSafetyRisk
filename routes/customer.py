@@ -194,8 +194,9 @@ def scan(product_id):
             damage_percentage, barcode, quality_score, status, summary,
             barcode_number, barcode_type, batch_number, mrp, net_weight,
             ocr_text, ocr_confidence, damage_type, damage_conf,
-            annotated_image, recommendation, scan_type)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            annotated_image, recommendation, scan_type,
+            nutrition_info, health_risk, consume_limit, fssai_license)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
         (
             product_id,
             ai.get("expiry_date", "Not Detected"),
@@ -217,7 +218,11 @@ def scan(product_id):
             ai.get("damage_conf", "0"),
             ai.get("annotated_image", ""),
             ai.get("recommendation", ""),
-            "product_scan"
+            "product_scan",
+            ai.get("nutrition_info", "Not Available"),
+            ai.get("health_risk", "Not Available"),
+            ai.get("consume_limit", "Not Available"),
+            ai.get("fssai_license", "Not Detected")
         ),
     )
     scan_id = cursor.lastrowid
@@ -415,6 +420,21 @@ def scan_result(scan_id):
                     scan_dict["off_data"]["nutrition"] = json.loads(scan_dict["off_data"]["nutrition_json"])
             except:
                 pass
+
+    # Fetch FSSAI and CrimeScan Data
+    ai_record = db.execute("SELECT raw_response_json FROM ai_analysis WHERE scan_id = ?", (scan_id,)).fetchone()
+    scan_dict['fssai_number'] = "Not Detected"
+    if ai_record and ai_record['raw_response_json']:
+        try:
+            import json
+            raw_json = json.loads(ai_record['raw_response_json'])
+            fssai_number = raw_json.get("fssai_number", "Not Detected")
+            scan_dict['fssai_number'] = fssai_number
+            
+            from services.crimescan_service import verify_fssai_licence
+            scan_dict['crimescan_data'] = verify_fssai_licence(fssai_number)
+        except Exception as e:
+            print(f"[FSSAI Verification Error] {e}")
 
     # Check if complaint already raised for this scan
     complaint = db.execute(

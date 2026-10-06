@@ -53,7 +53,11 @@ def perform_unified_inspection(image_path: str, manual_barcode: str = "", mfg_da
 
     # 3. Gemini Visual Analysis
     if image_path:
-        ai_data = analyze_with_gemini(image_path)
+        nutrition_json = None
+        if result["barcode"]["detected"] and "off_data" in locals() and off_data["success"] and off_data["product"]:
+            nutrition_json = off_data["product"].get("nutrition_json")
+            
+        ai_data = analyze_with_gemini(image_path, nutrition_data=nutrition_json)
         result["ai_analysis"] = ai_data
     else:
         # Default empty AI analysis if no image was provided
@@ -62,6 +66,7 @@ def perform_unified_inspection(image_path: str, manual_barcode: str = "", mfg_da
             "manufacturing_date": "Not Scanned",
             "batch_number": "Not Scanned",
             "mrp": "Not Scanned",
+            "fssai_license": "Not Scanned",
             "package_condition": "Not Scanned",
             "damage_percentage": "0%",
             "quality_score": "0",
@@ -71,7 +76,10 @@ def perform_unified_inspection(image_path: str, manual_barcode: str = "", mfg_da
             "ocr_confidence": "0",
             "damage_type": "Not Scanned",
             "damage_conf": "0",
-            "recommendation": "Submit an image for visual damage assessment."
+            "recommendation": "Submit an image for visual damage assessment.",
+            "nutrition_info": "Not Available",
+            "health_risk": "Not Available",
+            "consume_limit": "Not Available"
         }
         
     # 4. Override with manual dates if provided

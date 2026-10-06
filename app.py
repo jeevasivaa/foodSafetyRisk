@@ -14,6 +14,7 @@ from models.db import close_db, init_db
 from routes.auth     import auth
 from routes.customer import customer
 from routes.admin    import admin
+from routes.community import community_bp
 
 
 def create_app() -> Flask:
@@ -41,6 +42,7 @@ def create_app() -> Flask:
     app.register_blueprint(auth)
     app.register_blueprint(customer)
     app.register_blueprint(admin)
+    app.register_blueprint(community_bp, url_prefix='/community')
 
     # ── Database Teardown ─────────────────────────────────────────────────────
     app.teardown_appcontext(close_db)
