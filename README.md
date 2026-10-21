@@ -18,3 +18,7 @@ If `pyzbar` fails to load with a `FileNotFoundError` for `libiconv.dll` or `libz
 pip install -r requirements.txt
 python app.py
 ```
+
+The development server binds to `127.0.0.1` with debug mode disabled by
+default. Set `FLASK_DEBUG=true` only during local development. The bind
+address and port can be changed with `FLASK_HOST` and `FLASK_PORT`.
