@@ -57,9 +57,13 @@ def create_app() -> Flask:
 # ─── Main ─────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     application = create_app()
+    debug = os.getenv("FLASK_DEBUG", "").lower() in {"1", "true", "yes"}
+    host = os.getenv("FLASK_HOST", "127.0.0.1")
+    port = int(os.getenv("FLASK_PORT", "5000"))
     print("=" * 55)
     print("  AI Food Quality Analysis System — Phase 1")
-    print("  Running at http://127.0.0.1:5000")
-    print(f"  Admin: {config.ADMIN_EMAIL} / {config.ADMIN_PASS}")
+    print(f"  Running at http://{host}:{port}")
+    print(f"  Admin ID:       {config.ADMIN_USERNAME}")
+    print(f"  Admin Email:    {config.ADMIN_EMAIL}")
     print("=" * 55)
-    application.run(debug=True, host="0.0.0.0", port=5000)
+    application.run(debug=debug, host=host, port=port)
